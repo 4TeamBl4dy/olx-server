@@ -1,0 +1,26 @@
+name: Deploy Server
+
+on:
+    push:
+        branches:
+            - master
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Clone repo
+              uses: actions/checkout@v3
+
+            - name: Set up SSH key
+              uses: webfactory/ssh-agent@v0.5.3
+              with:
+                  ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+            - name: Deploy to server
+              env:
+                  SERVER_USER: ${{ secrets.SERVER_USER }}
+                  SERVER_IP: ${{ secrets.SERVER_IP }}
+              run: |
+                  ssh -o StrictHostKeyChecking=no $SERVER_USER@$SERVER_IP "cd work/olx-server/ && git pull && docker compose up -d --build"
