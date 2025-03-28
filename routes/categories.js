@@ -3,7 +3,29 @@ const Category = require("../models/Category");
 
 const router = express.Router();
 
-// 1. Добавление новой категории
+/**
+ * @swagger
+ * /category:
+ *   post:
+ *     summary: Создать новую категорию
+ *     tags: [Categories]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Категория создана
+ *       400:
+ *         description: Ошибка в запросе
+ */
 router.post("/", async (req, res) => {
   try {
     const { photo, title } = req.body;
@@ -26,7 +48,30 @@ router.post("/", async (req, res) => {
   }
 });
 
-// 2. Получение списка всех категорий
+/**
+ * @swagger
+ * /category:
+ *   get:
+ *     summary: Получить список всех категорий
+ *     tags: [Categories]
+ *     responses:
+ *       200:
+ *         description: Список категорий
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   _id:
+ *                     type: string
+ *                   name:
+ *                     type: string
+ *                   description:
+ *                     type: string
+ */
+
 router.get("/", async (req, res) => {
   try {
     const categories = await Category.find(); // Получаем все категории

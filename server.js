@@ -4,16 +4,21 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const productRoutes = require("./routes/products");
 const categoryRoutes = require("./routes/categories");
+const swaggerUi = require("swagger-ui-express"); // Добавляем Swagger UI
+const swaggerSpec = require("./swagger"); // Подключаем конфигурацию Swagger
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
-// Подключение к MongoDB
-mongoose.connect(process.env.MONGO_URI, {})
+// Подключаем Swagger UI по пути /api-docs
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-.then(() => console.log("Подключение к MongoDB установлено"))
-.catch(err => console.error("Ошибка подключения к MongoDB:", err));
+mongoose.connect(process.env.MONGO_URI, {}).then(
+  () => console.log("Подключение к MongoDB установлено"),
+  (err) => console.error("Ошибка подключения к MongoDB:", err)
+);
 
 app.use("/categories", categoryRoutes);
 app.use("/products", productRoutes);
