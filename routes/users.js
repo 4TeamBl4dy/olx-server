@@ -33,15 +33,22 @@ router.post("/register", async (req, res) => {
     // Создание нового пользователя
     user = new User({
       email,
-      password,
+      password, // Пароль будет автоматически хеширован в pre('save')
       name: name || undefined,
       profilePhoto: profilePhoto || undefined,
       phoneNumber: phoneNumber || undefined,
     });
 
     await user.save();
+    console.log("User saved:", user); // Логируем для отладки
+
+    // Проверка JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET не определен в переменных окружения");
+    }
 
     // Генерация JWT-токена
+    console.log("Generating token...");
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
     res.status(201).json({
@@ -56,6 +63,7 @@ router.post("/register", async (req, res) => {
       },
     });
   } catch (error) {
+    console.error("Server error:", error); // Логируем ошибку
     res.status(500).json({ message: "Ошибка сервера", error: error.message });
   }
 });
