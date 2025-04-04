@@ -11,7 +11,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get('/', async (req, res) => {
     try {
         const products = await Product.find();
-        res.status(200).json(products);
+        res.status(200).json(products.reverse());
     } catch (error) {
         console.error('Ошибка при получении всех продуктов:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
