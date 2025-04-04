@@ -40,7 +40,7 @@ router.post('/register', async (req, res) => {
         });
 
         await user.save();
-        console.log('User saved:', user); // Логируем для отладки
+        
 
         // Проверка JWT_SECRET
         if (!process.env.JWT_SECRET) {
@@ -48,7 +48,7 @@ router.post('/register', async (req, res) => {
         }
 
         // Генерация JWT-токена
-        console.log('Generating token...');
+        
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.status(201).json({
