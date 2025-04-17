@@ -3,6 +3,11 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+// Проверка JWT_SECRET при запуске
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET не определен в переменных окружения');
+}
+
 // Middleware для проверки токена
 const authMiddleware = (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -15,6 +20,7 @@ const authMiddleware = (req, res, next) => {
         req.user = decoded;
         next();
     } catch (error) {
+        console.error('Token verification error:', error);
         res.status(401).json({ message: 'Недействительный токен' });
     }
 };
@@ -40,15 +46,8 @@ router.post('/register', async (req, res) => {
         });
 
         await user.save();
-        
-
-        // Проверка JWT_SECRET
-        if (!process.env.JWT_SECRET) {
-            throw new Error('JWT_SECRET не определен в переменных окружения');
-        }
 
         // Генерация JWT-токена
-        
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 
         res.status(201).json({
@@ -63,8 +62,8 @@ router.post('/register', async (req, res) => {
             },
         });
     } catch (error) {
-        console.error('Server error:', error); // Логируем ошибку
-        res.status(500).json({ message: 'Ошибка сервера', error: error.message });
+        console.error('Server error in /register:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
@@ -100,7 +99,8 @@ router.post('/login', async (req, res) => {
             },
         });
     } catch (error) {
-        res.status(500).json({ message: 'Ошибка сервера', error: error.message });
+        console.error('Server error in /login:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
@@ -113,7 +113,34 @@ router.get('/me', authMiddleware, async (req, res) => {
         }
         res.json(user);
     } catch (error) {
-        res.status(500).json({ message: 'Ошибка сервера', error: error.message });
+        console.error('Server error in /me:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Обновление данных пользователя
+router.patch('/:id', authMiddleware, async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const updates = req.body;
+
+        // Проверяем, что пользователь обновляет свои данные
+        if (req.user.id !== userId) {
+            return res.status(403).json({ message: 'Доступ запрещен' });
+        }
+
+        // Исключаем email из обновлений
+        const { email, ...allowedUpdates } = updates;
+
+        const user = await User.findByIdAndUpdate(userId, allowedUpdates, { new: true }).select('-password');
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        res.json({ user });
+    } catch (error) {
+        console.error('Server error in /patch/:id:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
