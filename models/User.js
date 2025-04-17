@@ -6,31 +6,22 @@ const userSchema = new mongoose.Schema(
         name: {
             type: String,
             trim: true,
-            required: false,
         },
         email: {
             type: String,
-            required: [true, 'Email обязателен'],
-            unique: true,
             trim: true,
             lowercase: true,
-            match: [/^\S+@\S+\.\S+$/, 'Пожалуйста, введите корректный email'],
         },
         password: {
             type: String,
-            required: [true, 'Пароль обязателен'],
-            minlength: [6, 'Пароль должен быть не менее 6 символов'],
         },
         profilePhoto: {
             type: String,
             default: '',
-            required: false,
         },
         phoneNumber: {
             type: String,
             trim: true,
-            required: false,
-            match: [/^\+?[1-9]\d{1,14}$/, 'Пожалуйста, введите корректный номер телефона'], // Опциональная валидация
         },
         createdAt: {
             type: Date,
