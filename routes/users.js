@@ -126,42 +126,52 @@ router.patch('/:id', upload.any(), async (req, res) => {
         const userId = req.params.id;
         let updates = req.body;
 
-        // Парсим JSON, если пришло строкой
         if (typeof updates === 'string') {
             updates = JSON.parse(updates);
         }
 
-        // Проверка пользователя
         const userCheck = await User.findById(userId);
         if (!userCheck) {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
+
         if (updates.email && updates.email !== userCheck.email) {
             return res.status(403).json({ message: 'Нельзя обновлять данные другого пользователя' });
         }
 
-        // Удаляем email из обновлений
         const { email, ...allowedUpdates } = updates;
 
-        // Группируем файлы — берём только profilePhoto
         const files = req.files || [];
         const profilePhotoFiles = files.filter(f => f.fieldname === 'profilePhoto');
 
-        // Добавляем файлы в объект
+        // ➕ ЛОГ: выводим данные полученного файла
+        if (profilePhotoFiles.length > 0) {
+            console.log('⏫ Получен файл profilePhoto:');
+            profilePhotoFiles.forEach((file, i) => {
+                console.log(`  [${i}] originalname: ${file.originalname}`);
+                console.log(`  [${i}] mimetype: ${file.mimetype}`);
+                console.log(`  [${i}] path: ${file.path}`);
+                console.log(`  [${i}] size: ${file.size} bytes`);
+            });
+        } else {
+            console.log('⚠️ Файл profilePhoto не получен.');
+        }
+
         const userWithPhoto = {
             ...allowedUpdates,
             photo: profilePhotoFiles
         };
 
-        // Загружаем фото на Cloudflare
+        // Загружаем изображение и логируем результат
         const [processedUser] = await uploadImagesToCloudflare([userWithPhoto]);
 
-        // Обновляем ссылку на фото
+        // ➕ ЛОГ: полученный URL после загрузки
+        console.log('✅ Фото успешно загружено. Полученная ссылка:', processedUser.profilePhoto);
+
         if (processedUser.profilePhoto) {
             allowedUpdates.profilePhoto = processedUser.profilePhoto;
         }
 
-        // Обновляем пользователя в БД
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             { $set: allowedUpdates },
@@ -174,10 +184,11 @@ router.patch('/:id', upload.any(), async (req, res) => {
 
         res.json({ user: updatedUser });
     } catch (error) {
-        console.error('Ошибка при обновлении пользователя:', error);
+        console.error('❌ Ошибка при обновлении пользователя:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
+
 
 
 module.exports = router;
