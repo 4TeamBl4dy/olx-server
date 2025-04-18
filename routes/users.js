@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
 const User = require('../models/User');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
+
+const upload = multer({ storage: multer.memoryStorage() });
 // Проверка JWT_SECRET при запуске
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET не определен в переменных окружения');
@@ -118,7 +121,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', upload.single('profilePhoto'), async (req, res) => {
     try {
         const userId = req.params.id;
         let updates = req.body;
@@ -132,19 +135,19 @@ router.patch('/:id', async (req, res) => {
             return res.status(403).json({ message: 'Нельзя обновлять данные другого пользователя' });
         }
 
-        // Исключаем email из обновлений, чтобы нельзя было его изменить
+        // Исключаем email из обновлений
         const { email, ...allowedUpdates } = updates;
 
         // Если пришло изображение, обрабатываем его через Cloudflare
         if (req.file) {
             const userDataWithFile = {
                 ...allowedUpdates,
-                photo: [req.file], // Передаем файл в массиве для совместимости с uploadImagesToCloudflare
+                photo: [req.file], // Передаем файл в массиве для совместимости
             };
 
             // Загружаем изображение в Cloudflare
             const [processedUserData] = await uploadImagesToCloudflare([userDataWithFile]);
-            allowedUpdates.profilePhoto = processedUserData.profilePhoto; // Обновляем ссылку на загруженное изображение
+            allowedUpdates.profilePhoto = processedUserData.profilePhoto; // Обновляем ссылку
         }
 
         // Обновляем данные пользователя в базе
