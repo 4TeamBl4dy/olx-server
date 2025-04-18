@@ -6,6 +6,7 @@ const User = require('../models/User');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 
 const upload = multer({ storage: multer.memoryStorage() });
+
 // Проверка JWT_SECRET при запуске
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET не определен в переменных окружения');
@@ -107,74 +108,61 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// Получение данных пользователя (защищённый маршрут)
-router.get('/me', authMiddleware, async (req, res) => {
+// Получение данных пользователя по ID
+router.get('/:id', async (req, res) => {
     try {
-        const user = await User.findById(req.user.id).select('-password');
+        const user = await User.findById(req.params.id).select('-password');
         if (!user) {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
-        res.json(user);
+        res.json({ user });
     } catch (error) {
-        console.error('Server error in /me:', error);
+        console.error('Server error in /users/:id:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
-router.patch('/:id', upload.any(), async (req, res) => {
+// Обновление данных пользователя по ID
+router.put('/:id', upload.any(), async (req, res) => {
     try {
         const userId = req.params.id;
-        let updates = req.body;
+        let userData = req.body;
 
-        if (typeof updates === 'string') {
-            updates = JSON.parse(updates);
+        // Парсим JSON, если он пришел как строка
+        if (typeof userData === 'string') {
+            userData = JSON.parse(userData);
         }
 
-        const userCheck = await User.findById(userId);
-        if (!userCheck) {
+        // Проверяем существование пользователя
+        const user = await User.findById(userId);
+        if (!user) {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
-        if (updates.email && updates.email !== userCheck.email) {
-            return res.status(403).json({ message: 'Нельзя обновлять данные другого пользователя' });
-        }
-
-        const { email, ...allowedUpdates } = updates;
-
-        const files = req.files || [];
-        const profilePhotoFiles = files.filter(f => f.fieldname === 'profilePhoto');
-
-        // ➕ ЛОГ: выводим данные полученного файла
-        if (profilePhotoFiles.length > 0) {
-            console.log('⏫ Получен файл profilePhoto:');
-            profilePhotoFiles.forEach((file, i) => {
-                console.log(`  [${i}] originalname: ${file.originalname}`);
-                console.log(`  [${i}] mimetype: ${file.mimetype}`);
-                console.log(`  [${i}] path: ${file.path}`);
-                console.log(`  [${i}] size: ${file.size} bytes`);
-            });
-        } else {
-            console.log('⚠️ Файл profilePhoto не получен.');
-        }
-
-        const userWithPhoto = {
-            ...allowedUpdates,
-            photo: profilePhotoFiles
+        // Формируем объект с данными для обновления
+        const updates = {
+            name: userData.name || user.name,
+            phoneNumber: userData.phone || user.phoneNumber,
+            photo: req.files?.filter((f) => f.fieldname.startsWith('photo[')) || [],
         };
 
-        // Загружаем изображение и логируем результат
-        const [processedUser] = await uploadImagesToCloudflare([userWithPhoto]);
+        // Обрабатываем изображения через Cloudflare
+        const [processedUser] = await uploadImagesToCloudflare([updates]);
 
-        // ➕ ЛОГ: полученный URL после загрузки
-        console.log('✅ Фото успешно загружено. Полученная ссылка:', processedUser.profilePhoto);
+        // Формируем финальные данные для обновления
+        const updateFields = {
+            name: processedUser.name,
+            phoneNumber: processedUser.phoneNumber,
+        };
 
-        if (processedUser.profilePhoto) {
-            allowedUpdates.profilePhoto = processedUser.profilePhoto;
+        if (processedUser.photo && processedUser.photo.length > 0) {
+            updateFields.profilePhoto = processedUser.photo[0]; // Берем первое фото
         }
 
+        // Обновляем пользователя в базе данных
         const updatedUser = await User.findByIdAndUpdate(
             userId,
-            { $set: allowedUpdates },
+            { $set: updateFields },
             { new: true, runValidators: true }
         ).select('-password');
 
@@ -182,10 +170,10 @@ router.patch('/:id', upload.any(), async (req, res) => {
             return res.status(404).json({ message: 'Пользователь не найден при обновлении' });
         }
 
-        res.json({ user: updatedUser });
+        res.status(200).json({ user: updatedUser });
     } catch (error) {
-        console.error('❌ Ошибка при обновлении пользователя:', error);
-        res.status(500).json({ message: 'Ошибка сервера' });
+        console.error('Ошибка при обновлении пользователя:', error);
+        res.status(400).json({ message: 'Ошибка в данных или на сервере' });
     }
 });
 
