@@ -111,7 +111,12 @@ router.post('/login', async (req, res) => {
 // Получение данных пользователя по ID
 router.get('/:id', async (req, res) => {
     try {
-        const user = await User.findById(req.params.id).select('-password');
+        const userId = req.params.id;
+        if (!userId || userId === 'undefined') {
+            return res.status(400).json({ message: 'Некорректный ID пользователя' });
+        }
+
+        const user = await User.findById(userId).select('-password');
         if (!user) {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
@@ -126,40 +131,38 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', upload.any(), async (req, res) => {
     try {
         const userId = req.params.id;
+        if (!userId || userId === 'undefined') {
+            return res.status(400).json({ message: 'Некорректный ID пользователя' });
+        }
+
         let userData = req.body;
 
-        // Парсим JSON, если он пришел как строка
         if (typeof userData === 'string') {
             userData = JSON.parse(userData);
         }
 
-        // Проверяем существование пользователя
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
-        // Формируем объект с данными для обновления
         const updates = {
             name: userData.name || user.name,
             phoneNumber: userData.phone || user.phoneNumber,
             photo: req.files?.filter((f) => f.fieldname.startsWith('photo[')) || [],
         };
 
-        // Обрабатываем изображения через Cloudflare
         const [processedUser] = await uploadImagesToCloudflare([updates]);
 
-        // Формируем финальные данные для обновления
         const updateFields = {
             name: processedUser.name,
             phoneNumber: processedUser.phoneNumber,
         };
 
         if (processedUser.photo && processedUser.photo.length > 0) {
-            updateFields.profilePhoto = processedUser.photo[0]; // Берем первое фото
+            updateFields.profilePhoto = processedUser.photo[0];
         }
 
-        // Обновляем пользователя в базе данных
         const updatedUser = await User.findByIdAndUpdate(
             userId,
             { $set: updateFields },
