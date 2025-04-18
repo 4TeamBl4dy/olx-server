@@ -121,7 +121,7 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-router.patch('/:id', upload.single('profilePhoto'), async (req, res) => {
+router.patch('/:id', upload.any(), async (req, res) => {
     try {
         const userId = req.params.id;
         let updates = req.body;
@@ -137,12 +137,12 @@ router.patch('/:id', upload.single('profilePhoto'), async (req, res) => {
 
         // Исключаем email из обновлений
         const { email, ...allowedUpdates } = updates;
-        console.log('photo: ', req.file);
+        console.log('photo: ', req.profilePhoto);
         // Если пришло изображение, обрабатываем его через Cloudflare
-        if (req.file) {
+        if (req.profilePhoto) {
             const userDataWithFile = {
                 ...allowedUpdates,
-                photo: [req.file], // Передаем файл в массиве для совместимости
+                photo: [req.profilePhoto], // Передаем файл в массиве для совместимости
             };
 
             // Загружаем изображение в Cloudflare
