@@ -149,7 +149,7 @@ router.patch('/:id', upload.single('profilePhoto'), async (req, res) => {
             const [processedUserData] = await uploadImagesToCloudflare([userDataWithFile]);
             allowedUpdates.profilePhoto = processedUserData.profilePhoto; // Обновляем ссылку
         }
-        console.log("sadas ", processedUserData)
+        console.log('allowedUpdates: ', allowedUpdates);
         // Обновляем данные пользователя в базе
         const user = await User.findByIdAndUpdate(
             userId,
