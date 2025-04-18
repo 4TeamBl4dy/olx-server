@@ -14,7 +14,7 @@ const authMiddleware = (req, res, next) => {
     if (!token) {
         return res.status(401).json({ message: 'Токен отсутствует' });
     }
-
+ 
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = decoded;
@@ -119,7 +119,7 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // Обновление данных пользователя
-router.patch('/:id', authMiddleware, upload.single('profilePhoto'), async (req, res) => {
+router.patch('/:id', authMiddleware, async (req, res) => {
     try {
         const userId = req.params.id;
         let updates = req.body;
