@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-
+const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 // Проверка JWT_SECRET при запуске
 if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET не определен в переменных окружения');
@@ -119,10 +119,10 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // Обновление данных пользователя
-router.patch('/:id', authMiddleware, async (req, res) => {
+router.patch('/:id', authMiddleware, upload.single('profilePhoto'), async (req, res) => {
     try {
         const userId = req.params.id;
-        const updates = req.body;
+        let updates = req.body;
 
         // Проверяем, что пользователь обновляет свои данные
         if (req.user.id !== userId) {
@@ -132,14 +132,32 @@ router.patch('/:id', authMiddleware, async (req, res) => {
         // Исключаем email из обновлений
         const { email, ...allowedUpdates } = updates;
 
-        const user = await User.findByIdAndUpdate(userId, allowedUpdates, { new: true }).select('-password');
+        // Если пришло изображение, обрабатываем его через Cloudflare
+        if (req.file) {
+            const userDataWithFile = {
+                ...allowedUpdates,
+                photo: [req.file], // Передаем файл в массиве для совместимости с uploadImagesToCloudflare
+            };
+
+            // Загружаем изображение в Cloudflare
+            const [processedUserData] = await uploadImagesToCloudflare([userDataWithFile]);
+            allowedUpdates.profilePhoto = processedUserData.profilePhoto; // Обновляем ссылку на загруженное изображение
+        }
+
+        // Обновляем данные пользователя в базе
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { $set: allowedUpdates },
+            { new: true, runValidators: true }
+        ).select('-password');
+
         if (!user) {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
         res.json({ user });
     } catch (error) {
-        console.error('Server error in /patch/:id:', error);
+        console.error('Ошибка при обновлении пользователя:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
