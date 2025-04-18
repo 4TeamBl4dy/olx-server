@@ -118,18 +118,21 @@ router.get('/me', authMiddleware, async (req, res) => {
     }
 });
 
-// Обновление данных пользователя
-router.patch('/:id', authMiddleware, async (req, res) => {
+router.patch('/:id', async (req, res) => {
     try {
         const userId = req.params.id;
         let updates = req.body;
 
-        // Проверяем, что пользователь обновляет свои данные
-        if (req.user.id !== userId) {
-            return res.status(403).json({ message: 'Доступ запрещен' });
+        // Проверяем, что email в теле запроса соответствует пользователю с данным ID
+        const userCheck = await User.findById(userId);
+        if (!userCheck) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+        if (updates.email && updates.email !== userCheck.email) {
+            return res.status(403).json({ message: 'Нельзя обновлять данные другого пользователя' });
         }
 
-        // Исключаем email из обновлений
+        // Исключаем email из обновлений, чтобы нельзя было его изменить
         const { email, ...allowedUpdates } = updates;
 
         // Если пришло изображение, обрабатываем его через Cloudflare
