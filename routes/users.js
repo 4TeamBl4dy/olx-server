@@ -137,7 +137,7 @@ router.patch('/:id', upload.single('profilePhoto'), async (req, res) => {
 
         // Исключаем email из обновлений
         const { email, ...allowedUpdates } = updates;
-
+        console.log('photo: ', req.file);
         // Если пришло изображение, обрабатываем его через Cloudflare
         if (req.file) {
             const userDataWithFile = {
@@ -149,7 +149,7 @@ router.patch('/:id', upload.single('profilePhoto'), async (req, res) => {
             const [processedUserData] = await uploadImagesToCloudflare([userDataWithFile]);
             allowedUpdates.profilePhoto = processedUserData.profilePhoto; // Обновляем ссылку
         }
-
+        console.log("sadas ", processedUserData)
         // Обновляем данные пользователя в базе
         const user = await User.findByIdAndUpdate(
             userId,
