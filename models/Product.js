@@ -2,22 +2,25 @@ const mongoose = require('mongoose');
 
 const ProductSchema = new mongoose.Schema(
     {
-        photo: { type: [String] }, //фото товара
-        title: { type: String, required: true }, //заголовок объявы
-        category: { type: String, required: true }, //категория товара
-        description: { type: String }, //описание товара
-        dealType: { type: String, required: true }, //тип сделки
-        price: { type: Number }, //цена товара
-        isNegotiable: { type: Boolean, default: false }, //возможен торг
-        condition: { type: String, required: true }, //состояние товара
-        address: { type: String, required: true }, //адрес
-        sellerName: { type: String, required: true }, //имя продавца
-        email: { type: String }, //email продавца
-        phone: { type: String }, //телефон продавца
+        photo: { type: [String] }, // Фото товара
+        title: { type: String, required: true }, // Заголовок объявления
+        category: { type: String, required: true }, // Категория товара
+        description: { type: String }, // Описание товара
+        dealType: { type: String, required: true }, // Тип сделки
+        price: { type: Number }, // Цена товара
+        isNegotiable: { type: Boolean, default: false }, // Возможен торг
+        condition: { type: String, required: true }, // Состояние товара
+        address: { type: String, required: true }, // Адрес
+        sellerName: { type: String, required: true }, // Имя продавца
+        email: { type: String }, // Email продавца
+        phone: { type: String }, // Телефон продавца
+        creatorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            required: true,
+        }, // ID создателя (пользователя)
     },
     { timestamps: true }
 );
 
-const Product = mongoose.model('Product', ProductSchema);
-
-module.exports = Product;
+module.exports = mongoose.model('Product', ProductSchema);

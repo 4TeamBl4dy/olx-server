@@ -1,7 +1,8 @@
 const express = require('express');
 const Product = require('../models/Product');
+const User = require('../models/User');
 const multer = require('multer');
-const { uploadImagesToCloudflare } = require('../cloudflareHandler'); // Импорт функции для загрузки изображений в Cloudflare
+const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 const router = express.Router();
 
 // Настройка multer для обработки файлов (храним в памяти как буфер)
@@ -10,7 +11,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // 1. Получить все продукты
 router.get('/', async (req, res) => {
     try {
-        const products = await Product.find();
+        const products = await Product.find().populate('creatorId', 'name email phoneNumber profilePhoto');
         res.status(200).json(products.reverse());
     } catch (error) {
         console.error('Ошибка при получении всех продуктов:', error);
@@ -21,8 +22,8 @@ router.get('/', async (req, res) => {
 // 2. Поиск по любому фильтру
 router.get('/search', async (req, res) => {
     try {
-        const filter = req.query; // Получаем все параметры из строки запроса
-        const products = await Product.find(filter); // Ищем по переданным параметрам
+        const filter = req.query;
+        const products = await Product.find(filter).populate('creatorId', 'name email phoneNumber profilePhoto');
         if (products.length === 0) {
             return res.status(404).json({ message: 'Продукты по заданным фильтрам не найдены' });
         }
@@ -49,13 +50,26 @@ router.post('/', upload.any(), async (req, res) => {
             productsToSave = [productsToSave];
         }
 
-        // Группируем файлы по индексу продукта
+        // Проверяем наличие creatorId в первом продукте (для простоты)
+        const creatorId = productsToSave[0]?.creatorId;
+        if (!creatorId) {
+            return res.status(400).json({ message: 'Поле creatorId обязательно' });
+        }
+
+        // Проверяем существование пользователя
+        const user = await User.findById(creatorId);
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        // Группируем файлы по индексу продукта и добавляем creatorId
         const files = req.files || [];
         const processedProducts = productsToSave.map((item, index) => {
             const productFiles = files.filter((f) => f.fieldname === `photo[${index}]` || f.fieldname === 'photo');
             return {
                 ...item,
                 photo: productFiles,
+                creatorId: creatorId, // Устанавливаем creatorId от клиента
             };
         });
 
@@ -65,7 +79,11 @@ router.post('/', upload.any(), async (req, res) => {
         // Сохраняем продукты в базу данных
         const savedProducts = await Promise.all(
             uploadedProducts.map(async (productData) => {
-                const newProduct = new Product(productData);
+                const newProduct = new Product({
+                    ...productData,
+                    photo: productData.photo || [],
+                    creatorId: creatorId, // Устанавливаем creatorId
+                });
                 return await newProduct.save();
             })
         );
@@ -82,10 +100,22 @@ router.post('/', upload.any(), async (req, res) => {
 // 4. Удалить продукт по ID
 router.delete('/:id', async (req, res) => {
     try {
-        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-        if (!deletedProduct) {
+        const { creatorId } = req.body; // Получаем creatorId из тела запроса
+        if (!creatorId) {
+            return res.status(400).json({ message: 'Поле creatorId обязательно' });
+        }
+
+        const product = await Product.findById(req.params.id);
+        if (!product) {
             return res.status(404).json({ message: 'Продукт не найден' });
         }
+
+        // Проверяем, является ли пользователь создателем продукта
+        if (product.creatorId.toString() !== creatorId) {
+            return res.status(403).json({ message: 'Доступ запрещён: вы не являетесь создателем продукта' });
+        }
+
+        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
         res.status(200).json({ message: 'Продукт удален', deletedProduct });
     } catch (error) {
         console.error('Ошибка при удалении продукта:', error);
