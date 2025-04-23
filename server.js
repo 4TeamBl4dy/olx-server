@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const productRoutes = require('./routes/products');
 const categoryRoutes = require('./routes/categories');
 const userRoutes = require('./routes/users')
+const favoriteRoutes = require('./routes/favorites'); // Импортируем маршруты для избранного
 const swaggerUi = require('swagger-ui-express'); // Добавляем Swagger UI
 const swaggerSpec = require('./swagger'); // Подключаем конфигурацию Swagger
 
@@ -24,6 +25,7 @@ mongoose.connect(process.env.MONGO_URI, {}).then(
 app.use('/users', userRoutes );
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
+app.use('/favorites', favoriteRoutes);
 
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
