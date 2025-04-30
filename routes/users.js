@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const User = require('../models/User');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
+const { authenticateToken } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -12,22 +13,7 @@ if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET не определен в переменных окружения');
 }
 
-// Middleware для проверки токена
-const authMiddleware = (req, res, next) => {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) {
-        return res.status(401).json({ message: 'Токен отсутствует' });
-    }
  
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = decoded;
-        next();
-    } catch (error) {
-        console.error('Token verification error:', error);
-        res.status(401).json({ message: 'Недействительный токен' });
-    }
-};
 
 // Регистрация пользователя
 router.post('/register', async (req, res) => {
@@ -52,7 +38,7 @@ router.post('/register', async (req, res) => {
         await user.save();
 
         // Генерация JWT-токена
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
 
         res.status(201).json({
             token,
@@ -89,7 +75,7 @@ router.post('/login', async (req, res) => {
         }
 
         // Генерация JWT-токена
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
 
         res.json({
             token,
@@ -109,7 +95,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Получение данных пользователя по ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticateToken, async (req, res) => { // Применяем middleware
     try {
         const userId = req.params.id;
         if (!userId || userId === 'undefined') {
@@ -128,7 +114,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Обновление данных пользователя по ID
-router.put('/:id', upload.any(), async (req, res) => {
+router.put('/:id', authenticateToken, upload.any(), async (req, res) => { // Применяем middleware и multer
     try {
         const userId = req.params.id;
         if (!userId || userId === 'undefined') {
@@ -179,7 +165,6 @@ router.put('/:id', upload.any(), async (req, res) => {
         res.status(400).json({ message: 'Ошибка в данных или на сервере' });
     }
 });
-
 
 
 module.exports = router;
