@@ -63,4 +63,4 @@ app.use('/chats', ChatRoutes); // Подключаем маршруты для �
 app.use('/messages', MessageRoutes(io) ); // Подключаем маршруты для сообщений
 
 const PORT = process.env.PORT || 5050;
-app.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
+server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
