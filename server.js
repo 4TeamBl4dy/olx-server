@@ -28,7 +28,7 @@ mongoose.connect(process.env.MONGO_URI, {}).then(
 const server = http.createServer(app); // Создаем HTTP сервер на основе Express app
 const io = new Server(server, {
   cors: {
-    origin: "https://olx-server.makkenzo.com", // В продакшене укажите URL вашего фронтенда
+    origin: "*",  
     methods: ["GET", "POST"]
   }
 }); // Создаем Socket.IO сервер, привязанный к HTTP серверу
