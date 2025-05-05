@@ -14,7 +14,8 @@ router.get('/', authenticateToken, async (req, res) => {
         { participant2Id: userId }
       ]
     })
-    .populate('participant1Id participant2Id', 'username avatarUrl')
+    .populate('participant1Id participant2Id', 'name profilePhoto')
+    .populate('productId', 'title photo')
     .sort({ updatedAt: -1 }); // Сортируем по последнему обновлению
 
     res.json(chats);
@@ -28,8 +29,8 @@ router.get('/', authenticateToken, async (req, res) => {
 router.get('/:chatId', authenticateToken, async (req, res) => {
   try {
     const chat = await Chat.findById(req.params.chatId)
-      .populate('participant1Id participant2Id', 'username avatarUrl');
-
+      .populate('participant1Id participant2Id', 'name profilePhoto')
+      .populate('productId', 'title photo');
     if (!chat) {
       return res.status(404).json({ msg: 'Chat not found' });
     }

@@ -9,7 +9,7 @@ module.exports = (io) => {
     router.get('/:chatId', authenticateToken, async (req, res) => {
         try {
             const messages = await Message.find({ chatId: req.params.chatId })
-                .populate('senderId', '_id username avatarUrl name email profilePhoto phoneNumber createdAt') // Добавьте нужные поля
+                .populate('senderId', '_id name email profilePhoto phoneNumber createdAt') // Добавьте нужные поля
                 .sort({ createdAt: 1 });
             res.json(messages);
         } catch (err) {
@@ -41,7 +41,7 @@ module.exports = (io) => {
             // Получаем полную информацию об отправителе для отправки клиентам
             // Важно: Убедитесь, что populate возвращает ВСЕ поля, нужные на клиенте (_id обязательно)
             newMessage = await Message.findById(newMessage._id)
-                .populate('senderId', '_id username avatarUrl name email profilePhoto phoneNumber createdAt')
+                .populate('senderId', '_id name email profilePhoto phoneNumber createdAt')
                 .exec();
 
             if (!newMessage) {
