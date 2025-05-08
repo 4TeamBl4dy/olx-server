@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const User = require('../models/User');
+const Balance = require('../models/payment/Balance');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 const { authenticateToken } = require('../middleware/auth');
 
@@ -13,7 +14,21 @@ if (!process.env.JWT_SECRET) {
     throw new Error('JWT_SECRET не определен в переменных окружения');
 }
 
- 
+// Функция для создания баланса пользователя
+async function createUserBalance(userId) {
+    try {
+        const existingBalance = await Balance.findOne({
+            user: userId,
+            currency: 'KZT',
+        });
+
+        if (!existingBalance) {
+            await Balance.createBalance(userId, 'KZT');
+        }
+    } catch (error) {
+        console.error('Error creating user balance:', error);
+    }
+}
 
 // Регистрация пользователя
 router.post('/register', async (req, res) => {
@@ -36,6 +51,9 @@ router.post('/register', async (req, res) => {
         });
 
         await user.save();
+
+        // Создаем баланс для нового пользователя
+        await createUserBalance(user._id);
 
         // Генерация JWT-токена
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
@@ -74,6 +92,9 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Неверный email или пароль' });
         }
 
+        // Создаем баланс, если его нет
+        await createUserBalance(user._id);
+
         // Генерация JWT-токена
         const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
 
@@ -95,7 +116,8 @@ router.post('/login', async (req, res) => {
 });
 
 // Получение данных пользователя по ID
-router.get('/:id', authenticateToken, async (req, res) => { // Применяем middleware
+router.get('/:id', authenticateToken, async (req, res) => {
+    // Применяем middleware
     try {
         const userId = req.params.id;
         if (!userId || userId === 'undefined') {
@@ -114,7 +136,8 @@ router.get('/:id', authenticateToken, async (req, res) => { // Применяе�
 });
 
 // Обновление данных пользователя по ID
-router.put('/:id', authenticateToken, upload.any(), async (req, res) => { // Применяем middleware и multer
+router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
+    // Применяем middleware и multer
     try {
         const userId = req.params.id;
         if (!userId || userId === 'undefined') {
@@ -165,6 +188,5 @@ router.put('/:id', authenticateToken, upload.any(), async (req, res) => { // П�
         res.status(400).json({ message: 'Ошибка в данных или на сервере' });
     }
 });
-
 
 module.exports = router;
