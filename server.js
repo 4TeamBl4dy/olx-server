@@ -20,6 +20,7 @@ const app = express();
 app.use(cors());
 
 // Важно: для webhook'ов Stripe нужно использовать raw body
+// Этот middleware должен быть до express.json()
 app.use('/api/payment/stripe/webhook', express.raw({ type: 'application/json' }));
 
 // Для всех остальных маршрутов используем JSON

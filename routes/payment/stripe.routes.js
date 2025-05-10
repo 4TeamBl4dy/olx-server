@@ -5,6 +5,9 @@ const { authenticateToken } = require('../../middleware/auth');
 const Balance = require('../../models/payment/Balance');
 const BalanceHistory = require('../../models/payment/BalanceHistory');
 
+// Middleware для обработки raw body для webhook
+const rawBodyMiddleware = express.raw({ type: 'application/json' });
+
 // Создание Payment Intent для пополнения баланса
 router.post('/create-payment-intent', authenticateToken, async (req, res) => {
     try {
@@ -55,14 +58,17 @@ router.post('/create-payment-intent', authenticateToken, async (req, res) => {
 });
 
 // Webhook для обработки событий Stripe
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+router.post('/webhook', rawBodyMiddleware, async (req, res) => {
+    console.log('Webhook received!'); // Проверка получения webhook'а
+
     const sig = req.headers['stripe-signature'];
     let event;
 
     try {
         // Проверяем подпись webhook
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-        console.log('Received webhook event:', event.type);
+        console.log('Webhook event type:', event.type);
+        console.log('Webhook event data:', JSON.stringify(event.data.object, null, 2));
     } catch (err) {
         console.error('Webhook signature verification failed:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -72,9 +78,11 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         // Обработка события
         switch (event.type) {
             case 'payment_intent.succeeded':
+                console.log('Processing payment_intent.succeeded');
                 await handlePaymentSuccess(event.data.object);
                 break;
             case 'payment_intent.payment_failed':
+                console.log('Processing payment_intent.payment_failed');
                 await handlePaymentFailure(event.data.object);
                 break;
             default:
@@ -86,6 +94,14 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         console.error('Error processing webhook:', error);
         res.status(500).json({ error: 'Ошибка при обработке webhook' });
     }
+});
+
+// Тестовый эндпоинт для проверки webhook'а
+router.post('/webhook-test', express.raw({ type: 'application/json' }), (req, res) => {
+    console.log('Test webhook received!');
+    console.log('Headers:', req.headers);
+    console.log('Body:', req.body);
+    res.json({ received: true });
 });
 
 // Обработчик успешного платежа
