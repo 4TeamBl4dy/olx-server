@@ -210,16 +210,10 @@ router.get('/balance/history', authenticateToken, async (req, res) => {
     }
 });
 
-// Изменение баланса пользователя (только для администраторов)
-router.put('/balance/:userId', authenticateToken, async (req, res) => {
+// Универсальный маршрут для операций с балансом
+router.post('/balance/operation', authenticateToken, async (req, res) => {
     try {
-        // Проверяем, является ли пользователь администратором
-        if (req.user.role !== 'admin') {
-            return res.status(403).json({ error: 'Доступ запрещен' });
-        }
-
-        const { userId } = req.params;
-        const { amount, type, description } = req.body;
+        const { amount, type, description, metadata } = req.body;
 
         if (!amount || !type || !description) {
             return res.status(400).json({ error: 'Необходимо указать сумму, тип операции и описание' });
@@ -232,33 +226,59 @@ router.put('/balance/:userId', authenticateToken, async (req, res) => {
         try {
             // Находим или создаем баланс пользователя
             let balance = await Balance.findOne({
-                user: userId,
+                user: req.user._id,
                 currency: 'KZT',
             }).session(session);
 
             if (!balance) {
-                balance = await Balance.createBalance(userId, 'KZT');
+                balance = await Balance.create({
+                    user: req.user._id,
+                    currency: 'KZT',
+                    balance: 0,
+                });
+            }
+
+            // Проверяем достаточность средств для операций, уменьшающих баланс
+            const isDecreasingOperation = ['withdrawal', 'payment', 'fee'].includes(type);
+            if (isDecreasingOperation && balance.balance < amount * 100) {
+                await session.abortTransaction();
+                return res.status(400).json({ error: 'Недостаточно средств на балансе' });
             }
 
             // Создаем запись в истории баланса
             const balanceHistory = await BalanceHistory.create(
                 [
                     {
-                        user: userId,
+                        user: req.user._id,
                         type,
                         amount: amount * 100, // Конвертируем в тиын
                         currency: 'KZT',
                         status: 'completed',
-                        source: 'admin',
+                        source: 'manual',
                         description,
+                        metadata: metadata || {},
                         completed_at: new Date(),
                     },
                 ],
                 { session }
             );
 
-            // Обновляем баланс
-            balance.balance += amount * 100;
+            // Обновляем баланс в зависимости от типа операции
+            switch (type) {
+                case 'topup':
+                case 'refund':
+                    balance.balance += amount * 100;
+                    break;
+                case 'withdrawal':
+                case 'payment':
+                case 'fee':
+                    balance.balance -= amount * 100;
+                    break;
+                default:
+                    await session.abortTransaction();
+                    return res.status(400).json({ error: 'Недопустимый тип операции' });
+            }
+
             await balance.save({ session });
 
             // Фиксируем транзакцию
@@ -275,8 +295,8 @@ router.put('/balance/:userId', authenticateToken, async (req, res) => {
             session.endSession();
         }
     } catch (error) {
-        console.error('Error updating balance:', error);
-        res.status(500).json({ error: 'Ошибка при обновлении баланса' });
+        console.error('Error processing balance operation:', error);
+        res.status(500).json({ error: 'Ошибка при обработке операции с балансом' });
     }
 });
 
