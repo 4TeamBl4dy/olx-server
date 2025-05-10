@@ -23,7 +23,11 @@ async function createUserBalance(userId) {
         });
 
         if (!existingBalance) {
-            await Balance.createBalance(userId, 'KZT');
+            await Balance.create({
+                user: userId,
+                currency: 'KZT',
+                balance: 0,
+            });
         }
     } catch (error) {
         console.error('Error creating user balance:', error);
