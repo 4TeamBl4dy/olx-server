@@ -62,6 +62,7 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     try {
         // Проверяем подпись webhook
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+        console.log('Received webhook event:', event.type);
     } catch (err) {
         console.error('Webhook signature verification failed:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -76,6 +77,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
             case 'payment_intent.payment_failed':
                 await handlePaymentFailure(event.data.object);
                 break;
+            default:
+                console.log(`Unhandled event type: ${event.type}`);
         }
 
         res.json({ received: true });
@@ -87,8 +90,14 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
 // Обработчик успешного платежа
 async function handlePaymentSuccess(paymentIntent) {
+    console.log('Processing successful payment:', paymentIntent.id);
     const { id: paymentIntentId, metadata } = paymentIntent;
     const { userId } = metadata;
+
+    if (!userId) {
+        console.error('No userId in payment intent metadata');
+        return;
+    }
 
     // Начинаем транзакцию MongoDB
     const session = await BalanceHistory.startSession();
@@ -102,7 +111,7 @@ async function handlePaymentSuccess(paymentIntent) {
         }).session(session);
 
         if (!balanceHistory) {
-            // Если транзакция уже обработана, просто завершаем
+            console.error('No pending balance history found for payment:', paymentIntentId);
             await session.abortTransaction();
             return;
         }
@@ -114,7 +123,17 @@ async function handlePaymentSuccess(paymentIntent) {
         }).session(session);
 
         if (!balance) {
-            balance = await Balance.createBalance(userId, balanceHistory.currency);
+            balance = await Balance.create(
+                [
+                    {
+                        user: userId,
+                        currency: balanceHistory.currency,
+                        balance: 0,
+                    },
+                ],
+                { session }
+            );
+            balance = balance[0];
         }
 
         // Обновляем баланс
@@ -128,7 +147,9 @@ async function handlePaymentSuccess(paymentIntent) {
 
         // Фиксируем транзакцию
         await session.commitTransaction();
+        console.log('Successfully processed payment:', paymentIntentId);
     } catch (error) {
+        console.error('Error in handlePaymentSuccess:', error);
         await session.abortTransaction();
         throw error;
     } finally {
@@ -138,10 +159,11 @@ async function handlePaymentSuccess(paymentIntent) {
 
 // Обработчик неудачного платежа
 async function handlePaymentFailure(paymentIntent) {
+    console.log('Processing failed payment:', paymentIntent.id);
     const { id: paymentIntentId } = paymentIntent;
 
     try {
-        await BalanceHistory.findOneAndUpdate(
+        const result = await BalanceHistory.findOneAndUpdate(
             {
                 source_id: paymentIntentId,
                 status: 'pending',
@@ -149,8 +171,15 @@ async function handlePaymentFailure(paymentIntent) {
             {
                 status: 'failed',
                 completed_at: new Date(),
-            }
+            },
+            { new: true }
         );
+
+        if (!result) {
+            console.error('No pending balance history found for failed payment:', paymentIntentId);
+        } else {
+            console.log('Successfully marked payment as failed:', paymentIntentId);
+        }
     } catch (error) {
         console.error('Error handling payment failure:', error);
         throw error;
