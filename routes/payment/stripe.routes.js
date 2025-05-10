@@ -294,6 +294,9 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
                 return res.status(400).json({ error: 'Недостаточно средств на балансе' });
             }
 
+            // Генерируем уникальный source_id для операции
+            const source_id = `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
             // Создаем запись в истории баланса
             const balanceHistory = await BalanceHistory.create(
                 [
@@ -304,6 +307,7 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
                         currency: 'KZT',
                         status: 'completed',
                         source: 'manual',
+                        source_id: source_id, // Добавляем source_id
                         description,
                         metadata: metadata || {},
                         completed_at: new Date(),
