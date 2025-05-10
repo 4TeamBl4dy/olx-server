@@ -75,6 +75,14 @@ const balanceHistorySchema = new mongoose.Schema(
     }
 );
 
+// Middleware для автоматической генерации source_id
+balanceHistorySchema.pre('save', function (next) {
+    if ((this.status === 'completed' || this.status === 'failed') && !this.source_id) {
+        this.source_id = `${this.source}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    next();
+});
+
 // Индексы для оптимизации запросов
 balanceHistorySchema.index({ user: 1, created_at: -1 });
 balanceHistorySchema.index({ source: 1, source_id: 1 }, { unique: true, sparse: true });

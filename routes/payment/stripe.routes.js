@@ -59,8 +59,6 @@ router.post('/create-payment-intent', authenticateToken, async (req, res) => {
 
 // Webhook для обработки событий Stripe
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-    
-
     const sig = req.headers['stripe-signature'];
     let event;
 
@@ -276,11 +274,17 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
             }).session(session);
 
             if (!balance) {
-                balance = await Balance.create({
-                    user: req.user._id,
-                    currency: 'KZT',
-                    balance: 0,
-                });
+                balance = await Balance.create(
+                    [
+                        {
+                            user: req.user._id,
+                            currency: 'KZT',
+                            balance: 0,
+                        },
+                    ],
+                    { session }
+                );
+                balance = balance[0];
             }
 
             // Проверяем достаточность средств для операций, уменьшающих баланс
