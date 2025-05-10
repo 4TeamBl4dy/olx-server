@@ -63,13 +63,13 @@ io.on('connection', (socket) => {
     });
 });
 
+app.use('/api/payment', paymentRoutes);
 app.use('/users', userRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
 app.use('/favorites', favoriteRoutes);
-app.use('/chats', ChatRoutes); // Подключаем маршруты для чатов
-app.use('/messages', MessageRoutes(io)); // Подключаем маршруты для сообщений
-app.use('/api/payment', paymentRoutes);
+app.use('/chats', ChatRoutes);
+app.use('/messages', MessageRoutes(io));
 
 const PORT = process.env.PORT || 5050;
 server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));

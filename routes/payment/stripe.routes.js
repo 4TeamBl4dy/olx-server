@@ -58,8 +58,10 @@ router.post('/create-payment-intent', authenticateToken, async (req, res) => {
 });
 
 // Webhook для обработки событий Stripe
-router.post('/webhook', rawBodyMiddleware, async (req, res) => {
-    console.log('Webhook received!'); // Проверка получения webhook'а
+router.post('/webhook', async (req, res) => {
+    console.log('Webhook received!');
+    console.log('Headers:', req.headers);
+    console.log('Raw body:', req.body);
 
     const sig = req.headers['stripe-signature'];
     let event;
