@@ -19,9 +19,7 @@ const app = express();
 // Настройка CORS
 app.use(cors());
 
-// Важно: для webhook'ов Stripe нужно использовать raw body
-// Этот middleware должен быть до express.json()
-app.use('/api/payment/stripe/webhook', express.raw({ type: 'application/json' }));
+ 
 
 // Для всех остальных маршрутов используем JSON
 app.use(express.json());
@@ -63,13 +61,13 @@ io.on('connection', (socket) => {
     });
 });
 
-app.use('/api/payment', paymentRoutes);
 app.use('/users', userRoutes);
 app.use('/categories', categoryRoutes);
 app.use('/products', productRoutes);
 app.use('/favorites', favoriteRoutes);
-app.use('/chats', ChatRoutes);
-app.use('/messages', MessageRoutes(io));
+app.use('/chats', ChatRoutes); // Подключаем маршруты для чатов
+app.use('/messages', MessageRoutes(io)); // Подключаем маршруты для сообщений
+app.use('/api/payment', paymentRoutes);
 
 const PORT = process.env.PORT || 5050;
 server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
