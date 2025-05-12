@@ -4,7 +4,7 @@ const User = require('../models/User');
 const multer = require('multer');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 const router = express.Router();
-
+const BOOST_DAYS = 3;
 // Настройка multer для обработки файлов (храним в памяти как буфер)
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -39,7 +39,34 @@ router.get('/search', async (req, res) => {
     }
 });
 
-// 3. Создать новый продукт
+// 3. Поднять объявление на 3 дня
+router.post('/:id/boost', async (req, res) => {
+    try {
+        const productId = req.params.id;
+
+        const boostUntilDate = new Date(Date.now() + BOOST_DAYS * 24 * 60 * 60 * 1000);
+
+        const updatedProduct = await Product.findByIdAndUpdate(
+            productId,
+            { boostedUntil: boostUntilDate },
+            { new: true }
+        );
+
+        if (!updatedProduct) {
+            return res.status(404).json({ message: 'Объявление не найдено' });
+        }
+
+        res.status(200).json({
+            message: `Объявление поднято до ${boostUntilDate.toISOString()}`,
+            product: updatedProduct
+        });
+    } catch (error) {
+        console.error('Ошибка при поднятии объявления:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// 4. Создать новый продукт
 router.post('/', upload.any(), async (req, res) => {
     try {
         let productsToSave = req.body;
@@ -102,7 +129,7 @@ router.post('/', upload.any(), async (req, res) => {
     }
 });
 
-// 4. Удалить продукт по ID
+// 5. Удалить продукт по ID
 router.delete('/:id', async (req, res) => {
     try {
         const { creatorId } = req.body; // Получаем creatorId из тела запроса

@@ -19,6 +19,10 @@ const ProductSchema = new mongoose.Schema(
             ref: 'User',
             required: true,
         }, // ID создателя (пользователя)
+        boostedUntil: {
+            type: Date,
+            default: null // по умолчанию буст не активен
+        },
     },
     { timestamps: true }
 );
