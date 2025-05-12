@@ -35,7 +35,7 @@ router.post('/create-payment-intent', authenticateToken, async (req, res) => {
         const balanceHistory = await BalanceHistory.create({
             user: req.user._id,
             type: 'topup',
-            amount: amount , // Конвертируем в тиын
+            amount: amount * 100, // Конвертируем в тиын
             currency: 'KZT',
             status: 'pending',
             source: 'stripe',
@@ -289,13 +289,10 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
 
             // Проверяем достаточность средств для операций, уменьшающих баланс
             const isDecreasingOperation = ['withdrawal', 'payment', 'fee'].includes(type);
-            if (isDecreasingOperation && balance.balance < amount ) {
+            if (isDecreasingOperation && balance.balance < amount * 100) {
                 await session.abortTransaction();
                 return res.status(400).json({ error: 'Недостаточно средств на балансе' });
             }
-
-            // Генерируем уникальный source_id для операции
-            const source_id = `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
             // Создаем запись в истории баланса
             const balanceHistory = await BalanceHistory.create(
@@ -303,11 +300,11 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
                     {
                         user: req.user._id,
                         type,
-                        amount: amount , // Конвертируем в тиын
+                        amount: amount * 100, // Конвертируем в тиын
                         currency: 'KZT',
                         status: 'completed',
                         source: 'manual',
-                        source_id: source_id, // Добавляем source_id
+                        source_id: `manual_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         description,
                         metadata: metadata || {},
                         completed_at: new Date(),
@@ -320,12 +317,12 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
             switch (type) {
                 case 'topup':
                 case 'refund':
-                    balance.balance += amount ;
+                    balance.balance += amount * 100; // Конвертируем в тиын
                     break;
                 case 'withdrawal':
                 case 'payment':
                 case 'fee':
-                    balance.balance -= amount;
+                    balance.balance -= amount * 100; // Конвертируем в тиын
                     break;
                 default:
                     await session.abortTransaction();

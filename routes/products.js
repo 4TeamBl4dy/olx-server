@@ -85,7 +85,8 @@ router.post('/:id/boost', async (req, res) => {
             }
 
             // Проверяем достаточность средств
-            if (balance.balance < BOOST_COST) {
+            if (balance.balance < BOOST_COST * 100) {
+                // Умножаем на 100, так как в БД хранится в тиын
                 await session.abortTransaction();
                 return res.status(400).json({ message: 'Недостаточно средств на балансе' });
             }
@@ -96,7 +97,7 @@ router.post('/:id/boost', async (req, res) => {
                     {
                         user: creatorId,
                         type: 'payment',
-                        amount: BOOST_COST,
+                        amount: BOOST_COST * 100, // Умножаем на 100 для хранения в тиын
                         currency: 'KZT',
                         status: 'completed',
                         source: 'system',
@@ -113,7 +114,7 @@ router.post('/:id/boost', async (req, res) => {
             );
 
             // Списываем средства
-            balance.balance -= BOOST_COST;
+            balance.balance -= BOOST_COST * 100; // Умножаем на 100 для хранения в тиын
             await balance.save({ session });
 
             // Обновляем дату поднятия объявления
@@ -127,8 +128,15 @@ router.post('/:id/boost', async (req, res) => {
             // Фиксируем транзакцию
             await session.commitTransaction();
 
+            // Форматируем дату
+            const formattedDate = boostUntilDate.toLocaleDateString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+            });
+
             res.status(200).json({
-                message: `Объявление поднято до ${boostUntilDate.toISOString()}`,
+                message: `Объявление поднято до ${formattedDate}`,
                 product: updatedProduct,
                 balance: balance,
                 payment: balanceHistory[0],
