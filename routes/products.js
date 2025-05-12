@@ -8,21 +8,18 @@ const BOOST_DAYS = 3;
 // Настройка multer для обработки файлов (храним в памяти как буфер)
 const upload = multer({ storage: multer.memoryStorage() });
 
-
 // 1. Получить все продукты (сортировка от новых к старым)
 router.get('/', async (req, res) => {
     try {
         const products = await Product.find()
-            .sort({ createdAt: -1 }) // Сортировка: новые сначала
+            .sort({ boostedUntil: -1, createdAt: -1 }) // сначала буст, потом новые
             .populate('creatorId', 'name email phoneNumber profilePhoto');
-
         res.status(200).json(products);
     } catch (error) {
         console.error('Ошибка при получении всех продуктов:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
-
 
 // 2. Поиск по любому фильтру
 router.get('/search', async (req, res) => {
@@ -58,7 +55,7 @@ router.post('/:id/boost', async (req, res) => {
 
         res.status(200).json({
             message: `Объявление поднято до ${boostUntilDate.toISOString()}`,
-            product: updatedProduct
+            product: updatedProduct,
         });
     } catch (error) {
         console.error('Ошибка при поднятии объявления:', error);
