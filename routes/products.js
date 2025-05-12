@@ -1,10 +1,13 @@
 const express = require('express');
 const Product = require('../models/Product');
 const User = require('../models/User');
+const Balance = require('../models/payment/Balance');
+const BalanceHistory = require('../models/payment/BalanceHistory');
 const multer = require('multer');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 const router = express.Router();
 const BOOST_DAYS = 3;
+const BOOST_COST = 500; // Стоимость поднятия объявления в тенге
 // Настройка multer для обработки файлов (храним в памяти как буфер)
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -39,24 +42,103 @@ router.get('/search', async (req, res) => {
 // 3. Поднять объявление на 3 дня
 router.post('/:id/boost', async (req, res) => {
     try {
+        const { creatorId } = req.body;
+        if (!creatorId) {
+            return res.status(400).json({ message: 'Поле creatorId обязательно' });
+        }
+
         const productId = req.params.id;
+        const product = await Product.findById(productId);
 
-        const boostUntilDate = new Date(Date.now() + BOOST_DAYS * 24 * 60 * 60 * 1000);
-
-        const updatedProduct = await Product.findByIdAndUpdate(
-            productId,
-            { boostedUntil: boostUntilDate },
-            { new: true }
-        );
-
-        if (!updatedProduct) {
+        if (!product) {
             return res.status(404).json({ message: 'Объявление не найдено' });
         }
 
-        res.status(200).json({
-            message: `Объявление поднято до ${boostUntilDate.toISOString()}`,
-            product: updatedProduct,
-        });
+        // Проверяем, является ли пользователь создателем объявления
+        if (product.creatorId.toString() !== creatorId) {
+            return res.status(403).json({ message: 'Доступ запрещён: вы не являетесь создателем объявления' });
+        }
+
+        // Начинаем транзакцию MongoDB
+        const session = await BalanceHistory.startSession();
+        session.startTransaction();
+
+        try {
+            // Находим баланс пользователя
+            let balance = await Balance.findOne({
+                user: creatorId,
+                currency: 'KZT',
+            }).session(session);
+
+            if (!balance) {
+                balance = await Balance.create(
+                    [
+                        {
+                            user: creatorId,
+                            currency: 'KZT',
+                            balance: 0,
+                        },
+                    ],
+                    { session }
+                );
+                balance = balance[0];
+            }
+
+            // Проверяем достаточность средств
+            if (balance.balance < BOOST_COST) {
+                await session.abortTransaction();
+                return res.status(400).json({ message: 'Недостаточно средств на балансе' });
+            }
+
+            // Создаем запись в истории баланса
+            const balanceHistory = await BalanceHistory.create(
+                [
+                    {
+                        user: creatorId,
+                        type: 'payment',
+                        amount: BOOST_COST,
+                        currency: 'KZT',
+                        status: 'completed',
+                        source: 'system',
+                        source_id: `boost_${productId}_${Date.now()}`,
+                        description: `Поднятие объявления "${product.title}"`,
+                        metadata: {
+                            productId: productId,
+                            boostDays: BOOST_DAYS,
+                        },
+                        completed_at: new Date(),
+                    },
+                ],
+                { session }
+            );
+
+            // Списываем средства
+            balance.balance -= BOOST_COST;
+            await balance.save({ session });
+
+            // Обновляем дату поднятия объявления
+            const boostUntilDate = new Date(Date.now() + BOOST_DAYS * 24 * 60 * 60 * 1000);
+            const updatedProduct = await Product.findByIdAndUpdate(
+                productId,
+                { boostedUntil: boostUntilDate },
+                { new: true, session }
+            );
+
+            // Фиксируем транзакцию
+            await session.commitTransaction();
+
+            res.status(200).json({
+                message: `Объявление поднято до ${boostUntilDate.toISOString()}`,
+                product: updatedProduct,
+                balance: balance,
+                payment: balanceHistory[0],
+            });
+        } catch (error) {
+            await session.abortTransaction();
+            throw error;
+        } finally {
+            session.endSession();
+        }
     } catch (error) {
         console.error('Ошибка при поднятии объявления:', error);
         res.status(500).json({ message: 'Ошибка сервера' });

@@ -35,7 +35,7 @@ router.post('/create-payment-intent', authenticateToken, async (req, res) => {
         const balanceHistory = await BalanceHistory.create({
             user: req.user._id,
             type: 'topup',
-            amount: amount * 100, // Конвертируем в тиын
+            amount: amount , // Конвертируем в тиын
             currency: 'KZT',
             status: 'pending',
             source: 'stripe',
@@ -289,7 +289,7 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
 
             // Проверяем достаточность средств для операций, уменьшающих баланс
             const isDecreasingOperation = ['withdrawal', 'payment', 'fee'].includes(type);
-            if (isDecreasingOperation && balance.balance < amount * 100) {
+            if (isDecreasingOperation && balance.balance < amount ) {
                 await session.abortTransaction();
                 return res.status(400).json({ error: 'Недостаточно средств на балансе' });
             }
@@ -303,7 +303,7 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
                     {
                         user: req.user._id,
                         type,
-                        amount: amount * 100, // Конвертируем в тиын
+                        amount: amount , // Конвертируем в тиын
                         currency: 'KZT',
                         status: 'completed',
                         source: 'manual',
@@ -320,12 +320,12 @@ router.post('/balance/operation', authenticateToken, async (req, res) => {
             switch (type) {
                 case 'topup':
                 case 'refund':
-                    balance.balance += amount * 100;
+                    balance.balance += amount ;
                     break;
                 case 'withdrawal':
                 case 'payment':
                 case 'fee':
-                    balance.balance -= amount * 100;
+                    balance.balance -= amount;
                     break;
                 default:
                     await session.abortTransaction();
