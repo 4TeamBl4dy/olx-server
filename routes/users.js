@@ -36,7 +36,7 @@ async function createUserBalance(userId) {
 
 // Регистрация пользователя
 router.post('/register', async (req, res) => {
-    const { email, password, name, profilePhoto, phoneNumber } = req.body;
+    const { email, password, name, profilePhoto, phoneNumber, role } = req.body;
 
     try {
         // Проверка, существует ли пользователь
@@ -48,10 +48,11 @@ router.post('/register', async (req, res) => {
         // Создание нового пользователя
         user = new User({
             email,
-            password, // Пароль будет автоматически хеширован в pre('save')
+            password, 
             name: name || undefined,
             profilePhoto: profilePhoto || undefined,
             phoneNumber: phoneNumber || undefined,
+            role: role === 'admin' ? 'admin' : undefined,
         });
 
         await user.save();
