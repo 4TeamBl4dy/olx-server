@@ -17,7 +17,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 // 1. Получить все продукты (сортировка от новых к старым)
 router.get('/', async (req, res) => {
     try {
-        const products = await Product.find()
+        const products = await Product.find({ status: "approved" })
             .sort({ boostedUntil: -1, createdAt: -1 }) // сначала буст, потом новые
             .populate('creatorId', 'name email phoneNumber profilePhoto');
         res.status(200).json(products);
