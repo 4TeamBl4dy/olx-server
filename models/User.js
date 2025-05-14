@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+const USER_ROLES = {
+    ADMIN: 'admin',
+    MODERATOR: 'moderator',
+    USER: 'user',
+};
+
 const userSchema = new mongoose.Schema(
     {
         name: {
@@ -22,6 +28,12 @@ const userSchema = new mongoose.Schema(
         phoneNumber: {
             type: String,
             trim: true,
+        },
+        role: { 
+            type: String,
+            enum: Object.values(USER_ROLES), // Ограничиваем значения теми, что в USER_ROLES
+            default: USER_ROLES.USER,         // Роль по умолчанию - обычный пользователь
+            required: true,
         },
         createdAt: {
             type: Date,
@@ -46,4 +58,7 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+module.exports = {
+    User: mongoose.model('User', userSchema),
+    USER_ROLES: USER_ROLES,
+};

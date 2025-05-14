@@ -6,6 +6,8 @@ const BalanceHistory = require('../models/payment/BalanceHistory');
 const multer = require('multer');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 const router = express.Router();
+const { authenticateToken } = require('../middleware/auth');
+const { authorizeRole } = require('../middleware/role');
 const BOOST_DAYS = 3;
 const BOOST_COST = 500; // Стоимость поднятия объявления в тенге
 // Настройка multer для обработки файлов (храним в памяти как буфер)
@@ -238,6 +240,60 @@ router.delete('/:id', async (req, res) => {
         res.status(200).json({ message: 'Продукт удален', deletedProduct });
     } catch (error) {
         console.error('Ошибка при удалении продукта:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Получить список продуктов на модерации
+router.get('/products/pending', authenticateToken, authorizeRole('moderator', 'admin'), async (req, res) => {
+    try {
+        const pendingProducts = await Product.find({ status: 'pending_review' }).sort({ createdAt: -1 });
+        res.json(pendingProducts);
+    } catch (error) {
+        console.error('Ошибка при получении объявлений на рассмотрении:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Одобрить продукт
+router.put('/products/:id/approve', authenticateToken, authorizeRole('moderator', 'admin'), async (req, res) => {
+    try {
+        const productId = req.params.id;
+        const updatedProduct = await Product.findByIdAndUpdate(
+            productId,
+            { status: 'approved', rejectionReason: '' },
+            { new: true }
+        );
+        if (!updatedProduct) {
+            return res.status(404).json({ message: 'Продукт не найден' });
+        }
+        res.json({ message: 'Продукт одобрен', product: updatedProduct });
+    } catch (error) {
+        console.error('Ошибка при одобрении продукта:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Отклонить продукт
+router.put('/products/:id/reject', authenticateToken, authorizeRole('moderator', 'admin'), async (req, res) => {
+    try {
+        const { reason } = req.body;
+        if (!reason || reason.trim() === '') {
+            return res.status(400).json({ message: 'Укажите причину отклонения' });
+        }
+
+        const productId = req.params.id;
+        const updatedProduct = await Product.findByIdAndUpdate(
+            productId,
+            { status: 'rejected', rejectionReason: reason },
+            { new: true }
+        );
+        if (!updatedProduct) {
+            return res.status(404).json({ message: 'Продукт не найден' });
+        }
+        res.json({ message: 'Продукт отклонён', product: updatedProduct });
+    } catch (error) {
+        console.error('Ошибка при отклонении продукта:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });

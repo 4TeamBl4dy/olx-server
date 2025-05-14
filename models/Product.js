@@ -1,5 +1,12 @@
 const mongoose = require('mongoose');
 
+const PRODUCT_STATUSES= {
+    PENDING_REVIEW: 'pending_review',   // На рассмотрении
+    APPROVED: 'approved',             // Одобрено
+    REJECTED: 'rejected',             // Отклонено
+    OUTDATED: 'outdated',             // Не актуально или устарело (или 'archived', 'expired')
+};
+
 const ProductSchema = new mongoose.Schema(
     {
         photo: { type: [String] }, // Фото товара
@@ -23,6 +30,16 @@ const ProductSchema = new mongoose.Schema(
             type: Date,
             default: null // по умолчанию буст не активен
         },
+        status: {
+            type: String,
+            enum: Object.values(PRODUCT_STATUSES), // Используем английские значения для enum
+            default: PRODUCT_STATUSES.PENDING_REVIEW, // По умолчанию 'pending_review'
+            required: true,
+        },
+        rejectionReason: {
+            type: String,
+            default: '',
+        }
     },
     { timestamps: true }
 );

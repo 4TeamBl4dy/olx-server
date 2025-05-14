@@ -6,7 +6,7 @@ const User = require('../models/User');
 const Balance = require('../models/payment/Balance');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
 const { authenticateToken } = require('../middleware/auth');
-
+const { authorizeRole } = require('../middleware/role');
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Проверка JWT_SECRET при запуске
@@ -190,6 +190,49 @@ router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
     } catch (error) {
         console.error('Ошибка при обновлении пользователя:', error);
         res.status(400).json({ message: 'Ошибка в данных или на сервере' });
+    }
+});
+
+// Получить список всех пользователей (только админ)
+router.get('/', authenticateToken, authorizeRole('admin'), async (req, res) => {
+    try {
+        const users = await User.find().select('-password'); // исключаем пароли
+        res.status(200).json({ users });
+    } catch (error) {
+        console.error('Ошибка при получении пользователей:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Назначить пользователя модератором
+router.put('/make-moderator/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+
+        user.role = 'moderator';
+        await user.save();
+
+        res.json({ message: 'Роль обновлена до moderator', user });
+    } catch (error) {
+        console.error('Ошибка при обновлении роли:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Снять роль модератора
+router.put('/remove-moderator/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+
+        user.role = 'user';
+        await user.save();
+
+        res.json({ message: 'Роль обновлена до user', user });
+    } catch (error) {
+        console.error('Ошибка при обновлении роли:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
 
