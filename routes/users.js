@@ -72,6 +72,7 @@ router.post('/register', async (req, res) => {
                 profilePhoto: user.profilePhoto,
                 phoneNumber: user.phoneNumber,
                 createdAt: user.createdAt,
+                role: user.role,
             },
         });
     } catch (error) {
@@ -112,6 +113,7 @@ router.post('/login', async (req, res) => {
                 profilePhoto: user.profilePhoto,
                 phoneNumber: user.phoneNumber,
                 createdAt: user.createdAt,
+                role: user.role,
             },
         });
     } catch (error) {
