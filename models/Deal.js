@@ -33,12 +33,11 @@ const dealSchema = new mongoose.Schema({
         address: {
             type: String,
             required: function () {
-                return this.method === 'delivery';
+                return this.parent().method === 'delivery';
             },
         },
         note: {
             type: String,
-            default: undefined,
         },
     },
     status: {
