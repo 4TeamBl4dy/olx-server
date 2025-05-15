@@ -34,7 +34,7 @@ router.post('/create', authenticateToken, async (req, res) => {
                 {
                     product: product.toObject(),
                     productId: product._id,
-                    seller: product.seller,
+                    seller: product.creatorId,
                     buyer: buyerId,
                     amount: product.price,
                     delivery,
