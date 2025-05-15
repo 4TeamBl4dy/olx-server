@@ -132,7 +132,6 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Сделка не найдена' });
         }
 
-      
         if (deal.status !== 'pending') {
             return res.status(400).json({ error: 'Неверный статус сделки' });
         }
@@ -187,7 +186,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
                     metadata: { dealId: deal._id },
                 },
             ],
-            { session }
+            { session, ordered: true }
         );
 
         await session.commitTransaction();
@@ -292,7 +291,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
                     metadata: { dealId: deal._id },
                 },
             ],
-            { session }
+            { session, ordered: true }
         );
 
         await session.commitTransaction();
