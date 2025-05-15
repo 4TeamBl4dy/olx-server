@@ -28,8 +28,6 @@ router.post('/create', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Недостаточно средств' });
         }
 
-        
-
         // Создаем сделку
         const deal = await Deal.create(
             [
