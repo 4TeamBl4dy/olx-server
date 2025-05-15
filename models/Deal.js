@@ -38,6 +38,7 @@ const dealSchema = new mongoose.Schema({
         },
         note: {
             type: String,
+            default: undefined,
         },
     },
     status: {

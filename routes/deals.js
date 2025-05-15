@@ -37,7 +37,11 @@ router.post('/create', authenticateToken, async (req, res) => {
                     seller: product.creatorId,
                     buyer: buyerId,
                     amount: product.price,
-                    delivery,
+                    delivery: {
+                        method: delivery.method,
+                        address: delivery.address,
+                        note: delivery.note,
+                    },
                     status: 'pending',
                 },
             ],
