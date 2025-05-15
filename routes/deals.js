@@ -29,8 +29,8 @@ router.post('/create', authenticateToken, async (req, res) => {
         }
 
         console.log('Delivery object:', JSON.stringify(delivery, null, 2));
-        console.log('Delivery method:', delivery.method);
-        console.log('Delivery type:', typeof delivery.method);
+        console.log('Delivery method:', delivery.delivery.method);
+        console.log('Delivery type:', typeof delivery.delivery.method);
 
         // Создаем сделку
         const deal = await Deal.create(
@@ -42,9 +42,9 @@ router.post('/create', authenticateToken, async (req, res) => {
                     buyer: buyerId,
                     amount: product.price,
                     delivery: {
-                        method: delivery.method,
-                        address: delivery.address,
-                        note: delivery.note,
+                        method: delivery.delivery.method,
+                        address: delivery.delivery.address,
+                        note: delivery.delivery.note,
                     },
                     status: 'pending',
                 },
