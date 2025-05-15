@@ -27,7 +27,7 @@ router.post('/create', authenticateToken, async (req, res) => {
         if (!buyerBalance || buyerBalance.balance < product.price) {
             return res.status(400).json({ error: 'Недостаточно средств' });
         }
-
+        console.log(delivery);
         // Создаем сделку
         const deal = await Deal.create(
             [
