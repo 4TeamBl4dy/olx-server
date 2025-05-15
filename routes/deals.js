@@ -58,7 +58,7 @@ router.post('/create', authenticateToken, async (req, res) => {
                 {
                     user: buyerId,
                     type: 'payment',
-                    amount: -product.price,
+                    amount: product.price * 100,
                     currency: 'KZT',
                     status: 'completed',
                     source: 'internal',
@@ -96,7 +96,7 @@ router.post('/create', authenticateToken, async (req, res) => {
                 {
                     user: process.env.ADMIN_USER_ID,
                     type: 'payment',
-                    amount: product.price,
+                    amount: product.price * 100,
                     currency: 'KZT',
                     status: 'completed',
                     source: 'internal',
@@ -170,7 +170,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
                 {
                     user: process.env.ADMIN_USER_ID,
                     type: 'payment',
-                    amount: -deal.amount,
+                    amount: deal.amount * 100,
                     currency: 'KZT',
                     status: 'completed',
                     source: 'internal',
@@ -181,7 +181,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
                 {
                     user: deal.seller,
                     type: 'payment',
-                    amount: deal.amount,
+                    amount: deal.amount * 100,
                     currency: 'KZT',
                     status: 'completed',
                     source: 'internal',
@@ -275,7 +275,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
                 {
                     user: deal.seller,
                     type: 'refund',
-                    amount: -deal.amount,
+                    amount: deal.amount * 100,
                     currency: 'KZT',
                     status: 'completed',
                     source: 'internal',
@@ -286,7 +286,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
                 {
                     user: deal.buyer,
                     type: 'refund',
-                    amount: deal.amount,
+                    amount: deal.amount * 100,
                     currency: 'KZT',
                     status: 'completed',
                     source: 'internal',
@@ -328,6 +328,60 @@ router.post('/:dealId/reject-refund', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Error rejecting refund:', error);
         res.status(500).json({ error: 'Ошибка при отклонении возврата' });
+    }
+});
+
+// Получение всех сделок пользователя
+router.get('/user', authenticateToken, async (req, res) => {
+    try {
+        const { role, status } = req.query;
+        const userId = req.user._id;
+
+        // Базовый запрос
+        const query = {
+            $or: [{ buyer: userId }, { seller: userId }],
+        };
+
+        // Добавляем фильтр по роли если указана
+        if (role === 'buyer') {
+            query.$or = [{ buyer: userId }];
+        } else if (role === 'seller') {
+            query.$or = [{ seller: userId }];
+        }
+
+        // Добавляем фильтр по статусу если указан
+        if (status) {
+            query.status = status;
+        }
+
+        // Получаем сделки с пагинацией
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const deals = await Deal.find(query)
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('buyer', 'username email')
+            .populate('seller', 'username email')
+            .populate('productId', 'title images price');
+
+        // Получаем общее количество сделок для пагинации
+        const total = await Deal.countDocuments(query);
+
+        res.json({
+            deals,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        console.error('Error getting user deals:', error);
+        res.status(500).json({ error: 'Ошибка при получении сделок' });
     }
 });
 
