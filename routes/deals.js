@@ -363,9 +363,9 @@ router.get('/user', authenticateToken, async (req, res) => {
             .sort({ createdAt: -1 })
             .skip(skip)
             .limit(limit)
-            .populate('buyer', 'username email')
-            .populate('seller', 'username email')
-            .populate('productId', 'title images price');
+            .populate('buyer', 'name')
+            .populate('seller', 'name')
+            .populate('productId', 'title photo price');
 
         // Получаем общее количество сделок для пагинации
         const total = await Deal.countDocuments(query);
