@@ -61,10 +61,11 @@ router.post('/create', authenticateToken, async (req, res) => {
             [
                 {
                     user: buyerId,
-                    type: 'deal_payment',
+                    type: 'payment',
                     amount: -product.price,
                     currency: 'KZT',
                     status: 'completed',
+                    source: 'internal',
                     description: `Оплата за товар: ${product.title}`,
                     metadata: {
                         dealId: deal[0]._id,
@@ -97,10 +98,11 @@ router.post('/create', authenticateToken, async (req, res) => {
             [
                 {
                     user: process.env.ADMIN_USER_ID,
-                    type: 'deal_hold',
+                    type: 'payment',
                     amount: product.price,
                     currency: 'KZT',
                     status: 'completed',
+                    source: 'internal',
                     description: `Удержание средств по сделке: ${product.title}`,
                     metadata: {
                         dealId: deal[0]._id,
@@ -169,19 +171,21 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
             [
                 {
                     user: process.env.ADMIN_USER_ID,
-                    type: 'deal_release',
+                    type: 'payment',
                     amount: -deal.amount,
                     currency: 'KZT',
                     status: 'completed',
+                    source: 'internal',
                     description: `Перевод средств продавцу по сделке: ${deal.product.title}`,
                     metadata: { dealId: deal._id },
                 },
                 {
                     user: deal.seller,
-                    type: 'deal_income',
+                    type: 'payment',
                     amount: deal.amount,
                     currency: 'KZT',
                     status: 'completed',
+                    source: 'internal',
                     description: `Получение средств по сделке: ${deal.product.title}`,
                     metadata: { dealId: deal._id },
                 },
@@ -270,19 +274,21 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
             [
                 {
                     user: deal.seller,
-                    type: 'refund_payment',
+                    type: 'refund',
                     amount: -deal.amount,
                     currency: 'KZT',
                     status: 'completed',
+                    source: 'internal',
                     description: `Возврат средств покупателю: ${deal.product.title}`,
                     metadata: { dealId: deal._id },
                 },
                 {
                     user: deal.buyer,
-                    type: 'refund_receipt',
+                    type: 'refund',
                     amount: deal.amount,
                     currency: 'KZT',
                     status: 'completed',
+                    source: 'internal',
                     description: `Получение возврата средств: ${deal.product.title}`,
                     metadata: { dealId: deal._id },
                 },
