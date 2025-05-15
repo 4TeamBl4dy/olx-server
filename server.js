@@ -13,13 +13,12 @@ const swaggerSpec = require('./swagger'); // Подключаем конфигу
 const ChatRoutes = require('./routes/chats'); // Импортируем маршруты для чатов
 const MessageRoutes = require('./routes/messages'); // Импортируем маршруты для сообщений
 const paymentRoutes = require('./routes/payment');
+const dealRoutes = require('./routes/deals'); // Импортируем маршруты для сделок
 
 const app = express();
 
 // Настройка CORS
 app.use(cors());
-
- 
 
 // Для всех остальных маршрутов используем JSON
 app.use(express.json());
@@ -68,6 +67,7 @@ app.use('/favorites', favoriteRoutes);
 app.use('/chats', ChatRoutes); // Подключаем маршруты для чатов
 app.use('/messages', MessageRoutes(io)); // Подключаем маршруты для сообщений
 app.use('/api/payment', paymentRoutes);
+app.use('/deals', dealRoutes); // Подключаем маршруты для сделок
 
 const PORT = process.env.PORT || 5050;
 server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
