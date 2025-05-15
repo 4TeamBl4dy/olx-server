@@ -28,9 +28,7 @@ router.post('/create', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Недостаточно средств' });
         }
 
-        console.log('Delivery object:', JSON.stringify(delivery, null, 2));
-        console.log('Delivery method:', delivery.delivery.method);
-        console.log('Delivery type:', typeof delivery.delivery.method);
+        
 
         // Создаем сделку
         const deal = await Deal.create(
