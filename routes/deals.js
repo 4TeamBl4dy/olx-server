@@ -132,10 +132,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Сделка не найдена' });
         }
 
-        if (deal.buyer.toString() !== req.user._id.toString()) {
-            return res.status(403).json({ error: 'Нет доступа' });
-        }
-
+      
         if (deal.status !== 'pending') {
             return res.status(400).json({ error: 'Неверный статус сделки' });
         }
