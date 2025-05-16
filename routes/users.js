@@ -48,7 +48,7 @@ router.post('/register', async (req, res) => {
         // Создание нового пользователя
         user = new User({
             email,
-            password, 
+            password,
             name: name || undefined,
             profilePhoto: profilePhoto || undefined,
             phoneNumber: phoneNumber || undefined,
@@ -165,30 +165,33 @@ router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
                 console.error('Ошибка парсинга JSON из req.body.data:', parseError);
                 return res.status(400).json({ message: 'Некорректный формат данных JSON в поле data' });
             }
-        } else if (typeof req.body === 'string') { // Реже, но возможно, если весь body - строка
-             try {
+        } else if (
+            typeof req.body === 'string' &&
+            req.body.length > 0 &&
+            (req.body.startsWith('{') || req.body.startsWith('['))
+        ) {
+            // Проверяем, что это похоже на JSON
+            try {
                 clientData = JSON.parse(req.body);
             } catch (parseError) {
                 console.error('Ошибка парсинга JSON из req.body:', parseError);
                 return res.status(400).json({ message: 'Некорректный формат данных JSON в теле запроса' });
             }
         }
-        // Если Content-Type: application/json, req.body уже будет объектом
 
         const fieldsToUpdate = {};
-
+        const normalizedClientData = { ...clientData };
         // Обновляем только те поля, которые были переданы
-        if (clientData.hasOwnProperty('name')) {
-            fieldsToUpdate.name = clientData.name;
+        if (normalizedClientData.hasOwnProperty('name')) {
+            fieldsToUpdate.name = normalizedClientData.name;
         }
-        if (clientData.hasOwnProperty('phone')) { // Клиент отправляет 'phone'
-            fieldsToUpdate.phoneNumber = clientData.phone; // В модели 'phoneNumber'
+        if (normalizedClientData.hasOwnProperty('phone')) {  
+            fieldsToUpdate.phoneNumber = normalizedClientData.phone;  
         }
-        if (clientData.hasOwnProperty('gender')) {
-            // Позволяем установить null или пустую строку, если это намеренно
-            fieldsToUpdate.gender = clientData.gender;
+        if (normalizedClientData.hasOwnProperty('gender')) {
+            fieldsToUpdate.gender = normalizedClientData.gender;
         }
-        
+
         // Обработка загрузки фото
         // Предполагаем, что клиент отправляет фото под именем 'profilePhoto'
         const photoFiles = req.files?.filter((f) => f.fieldname === 'profilePhoto'); // или f.fieldname.startsWith('photo') если может быть несколько
@@ -196,12 +199,14 @@ router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
         if (photoFiles && photoFiles.length > 0) {
             // Ваш `uploadImagesToCloudflare` ожидает массив объектов.
             // Создадим объект только с фото для передачи в функцию.
-            const payloadForUploader = [{
-                // Если uploadImagesToCloudflare использует другие поля из этого объекта для контекста,
-                // вы можете добавить их сюда, например, user.id или что-то еще.
-                // Но для простоты, предположим, ему достаточно файлов.
-                photo: photoFiles, // передаем массив файлов
-            }];
+            const payloadForUploader = [
+                {
+                    // Если uploadImagesToCloudflare использует другие поля из этого объекта для контекста,
+                    // вы можете добавить их сюда, например, user.id или что-то еще.
+                    // Но для простоты, предположим, ему достаточно файлов.
+                    photo: photoFiles, // передаем массив файлов
+                },
+            ];
 
             try {
                 const [processedResult] = await uploadImagesToCloudflare(payloadForUploader);
@@ -237,11 +242,11 @@ router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
         }
 
         res.status(200).json({ user: updatedUser });
-
     } catch (error) {
         console.error('Ошибка при обновлении пользователя:', error);
         // Более общая ошибка, если не была поймана специфическая
-        if (!res.headersSent) { // Проверяем, не был ли уже отправлен ответ
+        if (!res.headersSent) {
+            // Проверяем, не был ли уже отправлен ответ
             if (error.name === 'ValidationError') {
                 return res.status(400).json({ message: 'Ошибка валидации данных', errors: error.errors });
             }
