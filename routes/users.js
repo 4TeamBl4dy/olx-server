@@ -144,17 +144,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
 
 // Обновление данных пользователя по ID
 router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
-    // Применяем middleware и multer
     try {
         const userId = req.params.id;
         if (!userId || userId === 'undefined') {
             return res.status(400).json({ message: 'Некорректный ID пользователя' });
-        }
-
-        let userData = req.body;
-
-        if (typeof userData === 'string') {
-            userData = JSON.parse(userData);
         }
 
         const user = await User.findById(userId);
@@ -162,37 +155,98 @@ router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
             return res.status(404).json({ message: 'Пользователь не найден' });
         }
 
-        const updates = {
-            name: userData.name || user.name,
-            phoneNumber: userData.phone || user.phoneNumber,
-            photo: req.files?.filter((f) => f.fieldname.startsWith('photo[')) || [],
-        };
+        let clientData = req.body;
 
-        const [processedUser] = await uploadImagesToCloudflare([updates]);
+        // Если данные приходят в поле 'data' как JSON строка (часто с multipart/form-data)
+        if (req.body.data && typeof req.body.data === 'string') {
+            try {
+                clientData = JSON.parse(req.body.data);
+            } catch (parseError) {
+                console.error('Ошибка парсинга JSON из req.body.data:', parseError);
+                return res.status(400).json({ message: 'Некорректный формат данных JSON в поле data' });
+            }
+        } else if (typeof req.body === 'string') { // Реже, но возможно, если весь body - строка
+             try {
+                clientData = JSON.parse(req.body);
+            } catch (parseError) {
+                console.error('Ошибка парсинга JSON из req.body:', parseError);
+                return res.status(400).json({ message: 'Некорректный формат данных JSON в теле запроса' });
+            }
+        }
+        // Если Content-Type: application/json, req.body уже будет объектом
 
-        const updateFields = {
-            name: processedUser.name,
-            phoneNumber: processedUser.phoneNumber,
-        };
+        const fieldsToUpdate = {};
 
-        if (processedUser.photo && processedUser.photo.length > 0) {
-            updateFields.profilePhoto = processedUser.photo[0];
+        // Обновляем только те поля, которые были переданы
+        if (clientData.hasOwnProperty('name')) {
+            fieldsToUpdate.name = clientData.name;
+        }
+        if (clientData.hasOwnProperty('phone')) { // Клиент отправляет 'phone'
+            fieldsToUpdate.phoneNumber = clientData.phone; // В модели 'phoneNumber'
+        }
+        if (clientData.hasOwnProperty('gender')) {
+            // Позволяем установить null или пустую строку, если это намеренно
+            fieldsToUpdate.gender = clientData.gender;
+        }
+        
+        // Обработка загрузки фото
+        // Предполагаем, что клиент отправляет фото под именем 'profilePhoto'
+        const photoFiles = req.files?.filter((f) => f.fieldname === 'profilePhoto'); // или f.fieldname.startsWith('photo') если может быть несколько
+
+        if (photoFiles && photoFiles.length > 0) {
+            // Ваш `uploadImagesToCloudflare` ожидает массив объектов.
+            // Создадим объект только с фото для передачи в функцию.
+            const payloadForUploader = [{
+                // Если uploadImagesToCloudflare использует другие поля из этого объекта для контекста,
+                // вы можете добавить их сюда, например, user.id или что-то еще.
+                // Но для простоты, предположим, ему достаточно файлов.
+                photo: photoFiles, // передаем массив файлов
+            }];
+
+            try {
+                const [processedResult] = await uploadImagesToCloudflare(payloadForUploader);
+                if (processedResult && processedResult.photo && processedResult.photo.length > 0) {
+                    // Предполагаем, что processedResult.photo[0] теперь содержит URL
+                    fieldsToUpdate.profilePhoto = processedResult.photo[0];
+                } else if (processedResult && typeof processedResult.photo === 'string') {
+                    // Если вдруг функция возвращает строку напрямую для одного фото
+                    fieldsToUpdate.profilePhoto = processedResult.photo;
+                }
+            } catch (uploadError) {
+                console.error('Ошибка при загрузке фото в Cloudflare:', uploadError);
+                // Решите, хотите ли вы прервать обновление или продолжить без фото
+                return res.status(500).json({ message: 'Ошибка при загрузке изображения' });
+            }
+        }
+
+        // Если нечего обновлять (например, пришел пустой объект или только файлы, которые не удалось загрузить)
+        if (Object.keys(fieldsToUpdate).length === 0) {
+            return res.status(400).json({ message: 'Нет данных для обновления' });
         }
 
         const updatedUser = await User.findByIdAndUpdate(
             userId,
-            { $set: updateFields },
-            { new: true, runValidators: true }
-        ).select('-password');
+            { $set: fieldsToUpdate },
+            { new: true, runValidators: true } // runValidators важен для enum, minlength и т.д.
+        ).select('-password'); // Исключаем пароль из ответа
 
         if (!updatedUser) {
+            // Эта ситуация маловероятна, если findById выше нашел пользователя,
+            // но для полноты картины
             return res.status(404).json({ message: 'Пользователь не найден при обновлении' });
         }
 
         res.status(200).json({ user: updatedUser });
+
     } catch (error) {
         console.error('Ошибка при обновлении пользователя:', error);
-        res.status(400).json({ message: 'Ошибка в данных или на сервере' });
+        // Более общая ошибка, если не была поймана специфическая
+        if (!res.headersSent) { // Проверяем, не был ли уже отправлен ответ
+            if (error.name === 'ValidationError') {
+                return res.status(400).json({ message: 'Ошибка валидации данных', errors: error.errors });
+            }
+            res.status(500).json({ message: 'Внутренняя ошибка сервера при обновлении пользователя' });
+        }
     }
 });
 

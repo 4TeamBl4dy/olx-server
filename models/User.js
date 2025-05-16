@@ -29,11 +29,16 @@ const userSchema = new mongoose.Schema(
             type: String,
             trim: true,
         },
-        role: { 
+        role: {
             type: String,
-            enum: Object.values(USER_ROLES), // Ограничиваем значения теми, что в USER_ROLES
-            default: USER_ROLES.USER,         // Роль по умолчанию - обычный пользователь
+            enum: Object.values(USER_ROLES),
+            default: USER_ROLES.USER,
             required: true,
+        },
+        gender: {
+            type: String,
+            trim: true,
+            default: null, 
         },
         createdAt: {
             type: Date,
