@@ -318,4 +318,42 @@ router.put('/products/:id/reject', authenticateToken, authorizeRole('moderator',
     }
 });
 
+// 6. Вернуть актуальность объявления
+router.put('/:id/restore', async (req, res) => {
+    try {
+        const { creatorId } = req.body;
+        if (!creatorId) {
+            return res.status(400).json({ message: 'Поле creatorId обязательно' });
+        }
+
+        const product = await Product.findById(req.params.id);
+        if (!product) {
+            return res.status(404).json({ message: 'Продукт не найден' });
+        }
+
+        // Проверяем, является ли пользователь создателем продукта
+        if (product.creatorId.toString() !== creatorId) {
+            return res.status(403).json({ message: 'Доступ запрещён: вы не являетесь создателем продукта' });
+        }
+
+        // Обновляем статус на approved и обновляем дату создания
+        const updatedProduct = await Product.findByIdAndUpdate(
+            req.params.id,
+            {
+                status: 'approved',
+                createdAt: new Date(), // Обновляем дату создания на текущую
+            },
+            { new: true }
+        );
+
+        res.status(200).json({
+            message: 'Объявление восстановлено и помечено как актуальное',
+            product: updatedProduct,
+        });
+    } catch (error) {
+        console.error('Ошибка при восстановлении актуальности продукта:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
 module.exports = router;
