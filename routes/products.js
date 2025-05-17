@@ -13,11 +13,10 @@ const BOOST_COST = 500; // Стоимость поднятия объявлен�
 // Настройка multer для обработки файлов (храним в памяти как буфер)
 const upload = multer({ storage: multer.memoryStorage() });
 
-
 // 1. Получить все продукты (сортировка от новых к старым)
 router.get('/', async (req, res) => {
     try {
-        const products = await Product.find({ status: "approved" })
+        const products = await Product.find({ status: 'approved' })
             .sort({ boostedUntil: -1, createdAt: -1 }) // сначала буст, потом новые
             .populate('creatorId', 'name email phoneNumber profilePhoto');
         res.status(200).json(products);
@@ -30,8 +29,23 @@ router.get('/', async (req, res) => {
 // 2. Поиск по любому фильтру
 router.get('/search', async (req, res) => {
     try {
-        const filter = req.query;
+        const query = req.query;
+        const filter = {};
+
+        // Обрабатываем каждый параметр запроса
+        Object.keys(query).forEach((key) => {
+            // Если это не специальные поля (например, price, status и т.д.)
+            if (!['price', 'status', 'creatorId'].includes(key)) {
+                // Создаем регулярное выражение для частичного совпадения
+                filter[key] = { $regex: query[key], $options: 'i' }; // 'i' для регистронезависимого поиска
+            } else {
+                // Для специальных полей используем точное совпадение
+                filter[key] = query[key];
+            }
+        });
+
         const products = await Product.find(filter).populate('creatorId', 'name email phoneNumber profilePhoto');
+
         if (products.length === 0) {
             return res.status(404).json({ message: 'Продукты по заданным фильтрам не найдены' });
         }
