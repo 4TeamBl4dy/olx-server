@@ -49,7 +49,7 @@ router.post('/create', authenticateToken, async (req, res) => {
         );
 
         // Списываем деньги с баланса покупателя
-        buyerBalance.balance -= product.price;
+        buyerBalance.balance -= product.price*100;
         await buyerBalance.save({ session });
 
         // Добавляем запись в историю баланса покупателя
@@ -87,7 +87,7 @@ router.post('/create', authenticateToken, async (req, res) => {
             ));
 
         // Зачисляем деньги на баланс админа
-        adminBalance.balance += product.price;
+        adminBalance.balance += product.price*100;
         await adminBalance.save({ session });
 
         // Добавляем запись в историю баланса админа
@@ -147,7 +147,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
         }
 
         // Списываем деньги с баланса админа
-        adminBalance.balance -= deal.amount;
+        adminBalance.balance -= deal.amount*100;
         await adminBalance.save({ session });
 
         // Находим баланс продавца
@@ -157,7 +157,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
         }
 
         // Зачисляем деньги на баланс продавца
-        sellerBalance.balance += deal.amount;
+        sellerBalance.balance += deal.amount*100;
         await sellerBalance.save({ session });
 
         // Добавляем записи в историю баланса
@@ -252,7 +252,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
         }
 
         // Списываем деньги с баланса продавца
-        sellerBalance.balance -= deal.amount;
+        sellerBalance.balance -= deal.amount*100;
         await sellerBalance.save({ session });
 
         // Находим баланс покупателя
@@ -262,7 +262,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
         }
 
         // Возвращаем деньги покупателю
-        buyerBalance.balance += deal.amount;
+        buyerBalance.balance += deal.amount*100;
         await buyerBalance.save({ session });
 
         // Добавляем записи в историю баланса
