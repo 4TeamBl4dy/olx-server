@@ -233,8 +233,8 @@ router.post('/', upload.any(), async (req, res) => {
     }
 });
 
-// 5. Удалить продукт по ID
-router.delete('/:id', async (req, res) => {
+// 5. Обновить статус продукта на outdated
+router.put('/:id/mark-outdated', async (req, res) => {
     try {
         const { creatorId } = req.body; // Получаем creatorId из тела запроса
         if (!creatorId) {
@@ -251,10 +251,15 @@ router.delete('/:id', async (req, res) => {
             return res.status(403).json({ message: 'Доступ запрещён: вы не являетесь создателем продукта' });
         }
 
-        const deletedProduct = await Product.findByIdAndDelete(req.params.id);
-        res.status(200).json({ message: 'Продукт удален', deletedProduct });
+        // Меняем статус на outdated
+        const updatedProduct = await Product.findByIdAndUpdate(req.params.id, { status: 'outdated' }, { new: true });
+
+        res.status(200).json({
+            message: 'Объявление помечено как устаревшее',
+            product: updatedProduct,
+        });
     } catch (error) {
-        console.error('Ошибка при удалении продукта:', error);
+        console.error('Ошибка при изменении статуса продукта:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
