@@ -49,7 +49,7 @@ router.post('/create', authenticateToken, async (req, res) => {
         );
 
         // Списываем деньги с баланса покупателя
-        buyerBalance.balance -= product.price*100;
+        buyerBalance.balance -= product.price * 100;
         await buyerBalance.save({ session });
 
         // Добавляем запись в историю баланса покупателя
@@ -87,7 +87,7 @@ router.post('/create', authenticateToken, async (req, res) => {
             ));
 
         // Зачисляем деньги на баланс админа
-        adminBalance.balance += product.price*100;
+        adminBalance.balance += product.price * 100;
         await adminBalance.save({ session });
 
         // Добавляем запись в историю баланса админа
@@ -147,7 +147,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
         }
 
         // Списываем деньги с баланса админа
-        adminBalance.balance -= deal.amount*100;
+        adminBalance.balance -= deal.amount * 100;
         await adminBalance.save({ session });
 
         // Находим баланс продавца
@@ -157,7 +157,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
         }
 
         // Зачисляем деньги на баланс продавца
-        sellerBalance.balance += deal.amount*100;
+        sellerBalance.balance += deal.amount * 100;
         await sellerBalance.save({ session });
 
         // Добавляем записи в историю баланса
@@ -176,7 +176,7 @@ router.post('/:dealId/confirm-receipt', authenticateToken, async (req, res) => {
                 },
                 {
                     user: deal.seller,
-                    type: 'payment',
+                    type: 'topup',
                     amount: deal.amount * 100,
                     currency: 'KZT',
                     status: 'completed',
@@ -252,7 +252,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
         }
 
         // Списываем деньги с баланса продавца
-        sellerBalance.balance -= deal.amount*100;
+        sellerBalance.balance -= deal.amount * 100;
         await sellerBalance.save({ session });
 
         // Находим баланс покупателя
@@ -262,7 +262,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
         }
 
         // Возвращаем деньги покупателю
-        buyerBalance.balance += deal.amount*100;
+        buyerBalance.balance += deal.amount * 100;
         await buyerBalance.save({ session });
 
         // Добавляем записи в историю баланса
@@ -270,7 +270,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
             [
                 {
                     user: deal.seller,
-                    type: 'refund',
+                    type: 'payment',
                     amount: deal.amount * 100,
                     currency: 'KZT',
                     status: 'completed',
@@ -281,7 +281,7 @@ router.post('/:dealId/approve-refund', authenticateToken, async (req, res) => {
                 },
                 {
                     user: deal.buyer,
-                    type: 'refund',
+                    type: 'topup',
                     amount: deal.amount * 100,
                     currency: 'KZT',
                     status: 'completed',
@@ -378,6 +378,46 @@ router.get('/user', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Error getting user deals:', error);
         res.status(500).json({ error: 'Ошибка при получении сделок' });
+    }
+});
+
+// Получение всех заявок на возврат (только для админов и модераторов)
+router.get('/refund-requests', authenticateToken, async (req, res) => {
+    try {
+        // Проверяем роль пользователя
+        const user = await User.findById(req.user._id);
+        if (!user || (user.role !== 'admin' && user.role !== 'moderator')) {
+            return res.status(403).json({ error: 'Нет доступа' });
+        }
+
+        // Получаем заявки на возврат с пагинацией
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const refundRequests = await Deal.find({ status: 'refund_requested' })
+            .sort({ updatedAt: -1 })
+            .skip(skip)
+            .limit(limit)
+            .populate('buyer', 'name email phoneNumber')
+            .populate('seller', 'name email phoneNumber')
+            .populate('productId', 'title photo price');
+
+        // Получаем общее количество заявок для пагинации
+        const total = await Deal.countDocuments({ status: 'refund_requested' });
+
+        res.json({
+            refundRequests,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        console.error('Error getting refund requests:', error);
+        res.status(500).json({ error: 'Ошибка при получении заявок на возврат' });
     }
 });
 
