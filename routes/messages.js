@@ -63,5 +63,44 @@ module.exports = (io) => {
         }
     });
 
+    // 3. Отметить сообщения как прочитанные
+    router.put('/:chatId/read', authenticateToken, async (req, res) => {
+        const chatId = req.params.chatId;
+        const currentUserId = req.user.id;
+
+        try {
+            // Находим и обновляем все сообщения в чате, которые:
+            // 1. Отправлены другими пользователями (не текущим)
+            // 2. Еще не прочитаны (status не 'read')
+            const result = await Message.updateMany(
+                {
+                    chatId: chatId,
+                    senderId: { $ne: currentUserId },
+                    status: { $ne: 'read' },
+                },
+                {
+                    $set: { status: 'read' },
+                }
+            );
+
+            // Если были обновлены сообщения, отправляем уведомление через WebSocket
+            if (result.modifiedCount > 0) {
+                io.to(chatId).emit('messagesRead', {
+                    chatId: chatId,
+                    readBy: currentUserId,
+                    count: result.modifiedCount,
+                });
+            }
+
+            res.json({
+                success: true,
+                messagesUpdated: result.modifiedCount,
+            });
+        } catch (err) {
+            console.error('Ошибка при отметке сообщений как прочитанных:', err.message);
+            res.status(500).send('Server Error');
+        }
+    });
+
     return router; // Возвращаем настроенный роутер
 };
