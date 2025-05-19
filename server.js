@@ -15,6 +15,7 @@ const MessageRoutes = require('./routes/messages'); // Импортируем м
 const paymentRoutes = require('./routes/payment');
 const dealRoutes = require('./routes/deals'); // Импортируем маршруты для сделок
 const statisticsRoutes = require('./routes/statistics'); // Добавляем импорт статистики
+const userManagementRoutes = require('./routes/user-management');
 
 const app = express();
 
@@ -70,6 +71,7 @@ app.use('/messages', MessageRoutes(io)); // Подключаем маршрут�
 app.use('/api/payment', paymentRoutes);
 app.use('/deals', dealRoutes); // Подключаем маршруты для сделок
 app.use('/statistics', statisticsRoutes); // Добавляем маршруты статистики
+app.use('/user-management', userManagementRoutes);
 
 const PORT = process.env.PORT || 5050;
 server.listen(PORT, () => console.log(`Сервер запущен на порту ${PORT}`));
