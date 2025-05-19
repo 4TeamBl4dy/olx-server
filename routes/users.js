@@ -360,4 +360,35 @@ router.put('/unblock/:id', authenticateToken, authorizeRole('admin', 'moderator'
     }
 });
 
+// Получить список всех заблокированных пользователей
+router.get('/blocked', authenticateToken, authorizeRole('admin', 'moderator'), async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+        const skip = (page - 1) * limit;
+
+        // Получаем заблокированных пользователей с пагинацией
+        const blockedUsers = await User.find({ role: 'blocked' })
+            .select('-password') // Исключаем пароли
+            .sort({ updatedAt: -1 }) // Сортировка по дате блокировки (самые новые сверху)
+            .skip(skip)
+            .limit(parseInt(limit));
+
+        // Получаем общее количество заблокированных пользователей
+        const total = await User.countDocuments({ role: 'blocked' });
+
+        res.json({
+            users: blockedUsers,
+            pagination: {
+                total,
+                page: parseInt(page),
+                limit: parseInt(limit),
+                pages: Math.ceil(total / limit),
+            },
+        });
+    } catch (error) {
+        console.error('Ошибка при получении списка заблокированных пользователей:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
 module.exports = router;
