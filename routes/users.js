@@ -185,8 +185,8 @@ router.put('/:id', authenticateToken, upload.any(), async (req, res) => {
         if (normalizedClientData.hasOwnProperty('name')) {
             fieldsToUpdate.name = normalizedClientData.name;
         }
-        if (normalizedClientData.hasOwnProperty('phone')) {  
-            fieldsToUpdate.phoneNumber = normalizedClientData.phone;  
+        if (normalizedClientData.hasOwnProperty('phone')) {
+            fieldsToUpdate.phoneNumber = normalizedClientData.phone;
         }
         if (normalizedClientData.hasOwnProperty('gender')) {
             fieldsToUpdate.gender = normalizedClientData.gender;
@@ -294,6 +294,68 @@ router.put('/remove-moderator/:id', authenticateToken, authorizeRole('admin'), a
         res.json({ message: 'Роль обновлена до user', user });
     } catch (error) {
         console.error('Ошибка при обновлении роли:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Заблокировать пользователя (только для админов и модераторов)
+router.put('/block/:id', authenticateToken, authorizeRole('admin', 'moderator'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        // Нельзя заблокировать админа
+        if (user.role === 'admin' || user.role === 'moderator') {
+            return res.status(403).json({ message: 'Нельзя заблокировать администратора или модератора' });
+        }
+
+        user.role = 'blocked';
+        await user.save();
+
+        res.json({
+            message: 'Пользователь заблокирован',
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+            },
+        });
+    } catch (error) {
+        console.error('Ошибка при блокировке пользователя:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Разблокировать пользователя (только для админов и модераторов)
+router.put('/unblock/:id', authenticateToken, authorizeRole('admin', 'moderator'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Пользователь не найден' });
+        }
+
+        // Проверяем, что пользователь действительно заблокирован
+        if (user.role !== 'blocked') {
+            return res.status(400).json({ message: 'Пользователь не заблокирован' });
+        }
+
+        user.role = 'user';
+        await user.save();
+
+        res.json({
+            message: 'Пользователь разблокирован',
+            user: {
+                id: user._id,
+                email: user.email,
+                name: user.name,
+                role: user.role,
+            },
+        });
+    } catch (error) {
+        console.error('Ошибка при разблокировке пользователя:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });

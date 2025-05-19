@@ -5,6 +5,7 @@ const USER_ROLES = {
     ADMIN: 'admin',
     MODERATOR: 'moderator',
     USER: 'user',
+    BLOCKED: 'blocked',
 };
 
 const userSchema = new mongoose.Schema(
