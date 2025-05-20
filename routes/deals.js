@@ -217,6 +217,7 @@ router.post('/:dealId/request-refund', authenticateToken, async (req, res) => {
         }
 
         deal.status = 'refund_requested';
+        deal.refund_reason = req.body.refund_reason || '';
         await deal.save();
 
         res.json(deal);

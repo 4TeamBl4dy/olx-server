@@ -45,6 +45,10 @@ const dealSchema = new mongoose.Schema({
         enum: ['pending', 'received', 'refund_requested', 'refunded', 'cancelled'],
         default: 'pending',
     },
+    refund_reason: {
+        type: String,
+        default: '',
+    },
     createdAt: {
         type: Date,
         default: Date.now,
