@@ -88,6 +88,11 @@ router.post('/login', async (req, res) => {
     try {
         // Проверка, существует ли пользователь
         const user = await User.findOne({ email });
+
+        if(user && user.role === 'blocked') {
+            return res.status(403).json({ message: 'Ваш аккаунт заблокирован' });
+        }
+
         if (!user) {
             return res.status(400).json({ message: 'Неверный email или пароль' });
         }
