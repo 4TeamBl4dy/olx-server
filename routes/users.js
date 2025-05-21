@@ -89,7 +89,7 @@ router.post('/login', async (req, res) => {
         // Проверка, существует ли пользователь
         const user = await User.findOne({ email });
 
-        if(user && user.role === 'blocked') {
+        if (user && user.role === 'blocked') {
             return res.status(403).json({ message: 'Ваш аккаунт заблокирован' });
         }
 
@@ -296,6 +296,22 @@ router.put('/remove-moderator/:id', authenticateToken, authorizeRole('admin'), a
         await user.save();
 
         res.json({ message: 'Роль обновлена до user', user });
+    } catch (error) {
+        console.error('Ошибка при обновлении роли:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Назначить пользователя администратором (только для админов)
+router.put('/make-admin/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+
+        user.role = 'admin';
+        await user.save();
+
+        res.json({ message: 'Роль обновлена до admin', user });
     } catch (error) {
         console.error('Ошибка при обновлении роли:', error);
         res.status(500).json({ message: 'Ошибка сервера' });
