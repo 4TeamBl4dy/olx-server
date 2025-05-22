@@ -21,7 +21,13 @@ router.post('/create', authenticateToken, async (req, res) => {
         if (!product) {
             return res.status(404).json({ error: 'Товар не найден' });
         }
-
+        // Если у продукта нет цены, ставим 0
+        if (typeof product.price !== 'number' || isNaN(product.price)) {
+            product.price = 0;
+        }
+        if (delivery.delivery.method === 'delivery') {
+            product.price += 100; // Добавляем стоимость доставки
+        }
         // Проверяем баланс покупателя
         const buyerBalance = await Balance.findOne({ user: buyerId });
         if (!buyerBalance || buyerBalance.balance < product.price) {
