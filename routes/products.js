@@ -356,4 +356,73 @@ router.put('/:id/restore', async (req, res) => {
     }
 });
 
+// Обновление информации о продукте
+router.put('/:id', async (req, res) => {
+    try {
+        const { creatorId } = req.body;
+        if (!creatorId) {
+            return res.status(400).json({ message: 'Поле creatorId обязательно' });
+        }
+
+        const productId = req.params.id;
+        const product = await Product.findById(productId);
+
+        if (!product) {
+            return res.status(404).json({ message: 'Продукт не найден' });
+        }
+
+        // Проверяем, является ли пользователь создателем продукта
+        if (product.creatorId.toString() !== creatorId) {
+            return res.status(403).json({ message: 'Доступ запрещён: вы не являетесь создателем продукта' });
+        }
+
+        // Создаем объект с полями для обновления
+        const updateFields = {};
+
+        // Проверяем каждое возможное поле и добавляем его в updateFields если оно присутствует в запросе
+        const possibleFields = [
+            'title',
+            'category',
+            'description',
+            'dealType',
+            'price',
+            'isNegotiable',
+            'condition',
+            'address',
+            'sellerName',
+            'email',
+            'phone',
+        ];
+
+        possibleFields.forEach((field) => {
+            if (req.body[field] !== undefined) {
+                updateFields[field] = req.body[field];
+            }
+        });
+
+        // Если нет полей для обновления
+        if (Object.keys(updateFields).length === 0) {
+            return res.status(400).json({ message: 'Нет данных для обновления' });
+        }
+
+        // Обновляем продукт
+        const updatedProduct = await Product.findByIdAndUpdate(
+            productId,
+            { $set: updateFields },
+            { new: true, runValidators: true }
+        );
+
+        res.status(200).json({
+            message: 'Продукт успешно обновлен',
+            product: updatedProduct,
+        });
+    } catch (error) {
+        console.error('Ошибка при обновлении продукта:', error);
+        if (error.name === 'ValidationError') {
+            return res.status(400).json({ message: 'Ошибка валидации данных', errors: error.errors });
+        }
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
 module.exports = router;
