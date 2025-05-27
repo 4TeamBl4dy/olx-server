@@ -21,4 +21,15 @@ const authenticateToken = async (req, res, next) => {
     }
 };
 
-module.exports = { authenticateToken };
+const isMainAdmin = async (req, res, next) => {
+    if (!process.env.ADMIN_USER_ID) {
+        return res.status(500).json({ message: 'MAIN_ADMIN_ID не настроен' });
+    }
+
+    if (req.user._id.toString() !== process.env.ADMIN_USER_ID) {
+        return res.status(403).json({ message: 'Доступ запрещен. Требуются права главного администратора' });
+    }
+    next();
+};
+
+module.exports = { authenticateToken, isMainAdmin };

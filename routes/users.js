@@ -5,7 +5,7 @@ const multer = require('multer');
 const User = require('../models/User');
 const Balance = require('../models/payment/Balance');
 const { uploadImagesToCloudflare } = require('../cloudflareHandler');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, isMainAdmin } = require('../middleware/auth');
 const { authorizeRole } = require('../middleware/role');
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -302,8 +302,8 @@ router.put('/remove-moderator/:id', authenticateToken, authorizeRole('admin'), a
     }
 });
 
-// Назначить пользователя администратором (только для админов)
-router.put('/make-admin/:id', authenticateToken, authorizeRole('admin'), async (req, res) => {
+// Назначить пользователя администратором (только для главного админа)
+router.put('/make-admin/:id', authenticateToken, isMainAdmin, async (req, res) => {
     try {
         const user = await User.findById(req.params.id);
         if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
@@ -317,5 +317,123 @@ router.put('/make-admin/:id', authenticateToken, authorizeRole('admin'), async (
         res.status(500).json({ message: 'Ошибка сервера' });
     }
 });
+
+// Снять роль администратора (только для главного админа)
+router.put('/remove-admin/:id', authenticateToken, isMainAdmin, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'Пользователь не найден' });
+
+        user.role = 'user';
+        await user.save();
+
+        res.json({ message: 'Роль администратора снята', user });
+    } catch (error) {
+        console.error('Ошибка при обновлении роли:', error);
+        res.status(500).json({ message: 'Ошибка сервера' });
+    }
+});
+
+// Обновление данных пользователя администратором/модератором
+router.put(
+    '/admin-update/:id',
+    authenticateToken,
+    authorizeRole(['admin', 'moderator']),
+    upload.any(),
+    async (req, res) => {
+        try {
+            const userId = req.params.id;
+            if (!userId || userId === 'undefined') {
+                return res.status(400).json({ message: 'Некорректный ID пользователя' });
+            }
+
+            const user = await User.findById(userId);
+            if (!user) {
+                return res.status(404).json({ message: 'Пользователь не найден' });
+            }
+
+            let clientData = req.body;
+
+            // Парсинг JSON данных
+            if (req.body.data && typeof req.body.data === 'string') {
+                try {
+                    clientData = JSON.parse(req.body.data);
+                } catch (parseError) {
+                    console.error('Ошибка парсинга JSON из req.body.data:', parseError);
+                    return res.status(400).json({ message: 'Некорректный формат данных JSON в поле data' });
+                }
+            } else if (
+                typeof req.body === 'string' &&
+                req.body.length > 0 &&
+                (req.body.startsWith('{') || req.body.startsWith('['))
+            ) {
+                try {
+                    clientData = JSON.parse(req.body);
+                } catch (parseError) {
+                    console.error('Ошибка парсинга JSON из req.body:', parseError);
+                    return res.status(400).json({ message: 'Некорректный формат данных JSON в теле запроса' });
+                }
+            }
+
+            const fieldsToUpdate = {};
+            const normalizedClientData = { ...clientData };
+
+            // Обновляем все переданные поля
+            Object.keys(normalizedClientData).forEach((key) => {
+                if (key !== 'password' && key !== 'role') {
+                    // Запрещаем изменение пароля и роли через этот роут
+                    fieldsToUpdate[key] = normalizedClientData[key];
+                }
+            });
+
+            // Обработка загрузки фото
+            const photoFiles = req.files?.filter((f) => f.fieldname === 'profilePhoto');
+
+            if (photoFiles && photoFiles.length > 0) {
+                const payloadForUploader = [
+                    {
+                        photo: photoFiles,
+                    },
+                ];
+
+                try {
+                    const [processedResult] = await uploadImagesToCloudflare(payloadForUploader);
+                    if (processedResult && processedResult.photo && processedResult.photo.length > 0) {
+                        fieldsToUpdate.profilePhoto = processedResult.photo[0];
+                    } else if (processedResult && typeof processedResult.photo === 'string') {
+                        fieldsToUpdate.profilePhoto = processedResult.photo;
+                    }
+                } catch (uploadError) {
+                    console.error('Ошибка при загрузке фото в Cloudflare:', uploadError);
+                    return res.status(500).json({ message: 'Ошибка при загрузке изображения' });
+                }
+            }
+
+            if (Object.keys(fieldsToUpdate).length === 0) {
+                return res.status(400).json({ message: 'Нет данных для обновления' });
+            }
+
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                { $set: fieldsToUpdate },
+                { new: true, runValidators: true }
+            ).select('-password');
+
+            if (!updatedUser) {
+                return res.status(404).json({ message: 'Пользователь не найден при обновлении' });
+            }
+
+            res.status(200).json({ user: updatedUser });
+        } catch (error) {
+            console.error('Ошибка при обновлении пользователя:', error);
+            if (!res.headersSent) {
+                if (error.name === 'ValidationError') {
+                    return res.status(400).json({ message: 'Ошибка валидации данных', errors: error.errors });
+                }
+                res.status(500).json({ message: 'Внутренняя ошибка сервера при обновлении пользователя' });
+            }
+        }
+    }
+);
 
 module.exports = router;
