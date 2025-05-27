@@ -338,7 +338,7 @@ router.put('/remove-admin/:id', authenticateToken, isMainAdmin, async (req, res)
 router.put(
     '/admin-update/:id',
     authenticateToken,
-    authorizeRole(['admin', 'moderator']),
+    authorizeRole('admin', 'moderator'),
     upload.any(),
     async (req, res) => {
         try {
