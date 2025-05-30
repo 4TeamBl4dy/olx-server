@@ -213,13 +213,13 @@ router.post('/', upload.any(), async (req, res) => {
         const processedProducts = productsToSave.map((item, index) => {
             // Получаем все файлы для текущего продукта
             const productFiles = files.filter((f) => {
-                // Проверяем оба формата: photo[] и photo[index]
-                const matches = f.fieldname === 'photo[]' || f.fieldname === `photo[${index}]`;
+                // Принимаем все файлы, которые начинаются с 'photo'
+                const matches = f.fieldname.startsWith('photo');
                 console.log(`File ${f.originalname} with fieldname ${f.fieldname} matches: ${matches}`);
                 return matches;
             });
 
-            console.log(`Processing product ${index} with ${productFiles.length} files`); // Debug log
+            console.log(`Processing product ${index} with ${productFiles.length} files`);
 
             return {
                 ...item,
