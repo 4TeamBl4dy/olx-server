@@ -200,11 +200,23 @@ router.post('/', upload.any(), async (req, res) => {
 
         // Группируем файлы по индексу продукта и добавляем creatorId
         const files = req.files || [];
+        console.log(
+            'All incoming files:',
+            files.map((f) => ({
+                fieldname: f.fieldname,
+                originalname: f.originalname,
+                mimetype: f.mimetype,
+                size: f.size,
+            }))
+        );
+
         const processedProducts = productsToSave.map((item, index) => {
             // Получаем все файлы для текущего продукта
             const productFiles = files.filter((f) => {
                 // Проверяем оба формата: photo[] и photo[index]
-                return f.fieldname === 'photo[]' || f.fieldname === `photo[${index}]`;
+                const matches = f.fieldname === 'photo[]' || f.fieldname === `photo[${index}]`;
+                console.log(`File ${f.originalname} with fieldname ${f.fieldname} matches: ${matches}`);
+                return matches;
             });
 
             console.log(`Processing product ${index} with ${productFiles.length} files`); // Debug log
